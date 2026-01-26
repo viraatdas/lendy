@@ -38,7 +38,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
       try {
         const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
         const data = await response.json();
-        setResults((data.docs || []).slice(0, 5));
+        setResults((data.docs || []).slice(0, 12));
       } catch (error) {
         console.error('Search error:', error);
         setResults([]);
@@ -120,7 +120,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
         </div>
 
         {/* Results */}
-        <div className="max-h-80 overflow-y-auto">
+        <div className="max-h-[60vh] overflow-y-auto">
           {results.length > 0 ? (
             <div>
               {results.map((book, index) => (
