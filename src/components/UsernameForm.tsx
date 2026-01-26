@@ -18,32 +18,47 @@ export default function UsernameForm({ onSubmit, isLoading }: UsernameFormProps)
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 pixel-pattern">
+      {/* Decorative floating books */}
+      <div className="fixed top-20 left-10 text-4xl float-animation opacity-50">📚</div>
+      <div className="fixed top-40 right-20 text-3xl float-animation opacity-50" style={{ animationDelay: '1s' }}>📖</div>
+      <div className="fixed bottom-32 left-20 text-3xl float-animation opacity-50" style={{ animationDelay: '0.5s' }}>📕</div>
+      <div className="fixed bottom-20 right-10 text-4xl float-animation opacity-50" style={{ animationDelay: '1.5s' }}>📗</div>
+
       <div className="w-full max-w-md">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extralight tracking-tight text-black mb-3">
-            Lendy
-          </h1>
-          <p className="text-sm font-light text-gray-500 tracking-wide">
-            Your personal book lending library
+        {/* Logo */}
+        <div className="text-center mb-10">
+          <div className="inline-block pixel-card p-6 mb-6">
+            <h1 className="text-5xl font-bold tracking-tight" style={{ fontFamily: 'Silkscreen, cursive' }}>
+              <span className="text-[#ff6b9d]">L</span>
+              <span className="text-[#7c5cff]">e</span>
+              <span className="text-[#ffd700]">n</span>
+              <span className="text-[#4ade80]">d</span>
+              <span className="text-[#60a5fa]">y</span>
+            </h1>
+          </div>
+          <p className="text-xl text-[#666]">
+            ✨ Your cozy book lending library ✨
           </p>
         </div>
 
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
+          <div className="pixel-card p-6">
             <label
               htmlFor="username"
-              className="block text-xs font-light text-gray-400 uppercase tracking-widest mb-2"
+              className="block text-sm mb-3 uppercase tracking-widest"
+              style={{ fontFamily: 'Silkscreen, cursive' }}
             >
-              Username
+              Enter your name
             </label>
             <input
               type="text"
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
-              className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-200 text-lg font-light text-black placeholder-gray-300 focus:outline-none focus:border-black transition-colors"
+              placeholder="Type here..."
+              className="pixel-input w-full text-xl"
               maxLength={50}
               disabled={isLoading}
               autoFocus
@@ -53,15 +68,22 @@ export default function UsernameForm({ onSubmit, isLoading }: UsernameFormProps)
           <button
             type="submit"
             disabled={!username.trim() || isLoading}
-            className="w-full py-3 text-sm font-light tracking-widest uppercase text-white bg-black hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="pixel-btn pixel-btn-pink w-full text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Loading...' : 'Enter Library'}
+            {isLoading ? '⏳ Loading...' : '🎮 Start Reading!'}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-xs font-light text-gray-400">
-          Use the same username to access your books from any device
+        <p className="mt-8 text-center text-lg text-[#888]">
+          📌 Use the same name to find your books anywhere!
         </p>
+
+        {/* Decorative sparkles */}
+        <div className="flex justify-center gap-4 mt-6">
+          <span className="sparkle">⭐</span>
+          <span className="sparkle" style={{ animationDelay: '0.3s' }}>✨</span>
+          <span className="sparkle" style={{ animationDelay: '0.6s' }}>⭐</span>
+        </div>
       </div>
     </div>
   );

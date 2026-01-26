@@ -34,62 +34,75 @@ export default function LendModal({ isOpen, bookTitle, onClose, onConfirm }: Len
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+        className="absolute inset-0 bg-[#2d2d2d]/50 backdrop-blur-sm"
         onClick={handleClose}
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-white shadow-2xl p-8">
-        <h2 className="text-lg font-light text-black mb-2">Lend Book</h2>
-        <p className="text-sm font-light text-gray-400 mb-6 line-clamp-1">
-          {bookTitle}
-        </p>
+      <div className="relative w-full max-w-md pixel-card">
+        {/* Header */}
+        <div className="p-4 border-b-4 border-[#2d2d2d] bg-[#ff6b9d]/10">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🤝</span>
+            <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
+              Lend Book
+            </h2>
+          </div>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-xs font-light text-gray-400 uppercase tracking-widest mb-2">
-              Lending to (Name) *
+        {/* Book Title */}
+        <div className="p-4 border-b-2 border-[#eee]">
+          <p className="text-lg line-clamp-1" style={{ fontFamily: 'VT323, monospace' }}>
+            📖 {bookTitle}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm" style={{ fontFamily: 'Silkscreen, cursive' }}>
+              Lending to: *
             </label>
             <input
               type="text"
               value={lentToName}
               onChange={(e) => setLentToName(e.target.value)}
-              placeholder="Enter recipient's name"
-              className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-200 text-sm font-light text-black placeholder-gray-300 focus:outline-none focus:border-black transition-colors"
+              placeholder="Enter their name..."
+              className="pixel-input w-full"
               autoFocus
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-light text-gray-400 uppercase tracking-widest mb-2">
-              Their Lendy Username (Optional)
+          <div className="space-y-2">
+            <label className="block text-sm" style={{ fontFamily: 'Silkscreen, cursive' }}>
+              Their Lendy username: <span className="text-[#888]">(optional)</span>
             </label>
             <input
               type="text"
               value={borrowerUsername}
               onChange={(e) => setBorrowerUsername(e.target.value)}
-              placeholder="If they use Lendy, enter their username"
-              className="w-full px-0 py-3 bg-transparent border-0 border-b border-gray-200 text-sm font-light text-black placeholder-gray-300 focus:outline-none focus:border-black transition-colors"
+              placeholder="If they use Lendy..."
+              className="pixel-input w-full"
             />
-            <p className="mt-2 text-xs font-light text-gray-300">
-              This will show the book in their borrowed section
+            <p className="text-xs text-[#888]">
+              💡 This will show the book in their borrowed section!
             </p>
           </div>
 
+          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 py-3 text-sm font-light text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="pixel-btn flex-1"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!lentToName.trim()}
-              className="flex-1 py-3 text-sm font-light text-white bg-black hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className="pixel-btn pixel-btn-pink flex-1 disabled:opacity-50"
             >
-              Confirm Lend
+              🤝 Lend It!
             </button>
           </div>
         </form>

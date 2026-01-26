@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   try {
     await initializeDatabase();
 
-    const { username, title, author, coverUrl, openLibraryKey } = await request.json();
+    const { username, title, author, coverUrl, openLibraryKey, borrowedFromName } = await request.json();
 
     if (!username || !title) {
       return NextResponse.json(
@@ -39,7 +39,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const book = await addBook(username, title, author || 'Unknown Author', coverUrl, openLibraryKey);
+    const book = await addBook(
+      username,
+      title,
+      author || 'Unknown Author',
+      coverUrl,
+      openLibraryKey,
+      borrowedFromName
+    );
     return NextResponse.json({ book });
   } catch (error) {
     console.error('Error adding book:', error);

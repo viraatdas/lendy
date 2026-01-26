@@ -7,6 +7,7 @@ export interface Book {
   owner_username: string;
   borrower_username: string | null;
   lent_to_name: string | null;
+  borrowed_from_name: string | null;
   created_at: string;
 }
 

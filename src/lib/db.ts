@@ -19,9 +19,19 @@ export async function initializeDatabase() {
         owner_username VARCHAR(255) NOT NULL REFERENCES users(username),
         borrower_username VARCHAR(255) REFERENCES users(username),
         lent_to_name VARCHAR(255),
+        borrowed_from_name VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+
+    // Add borrowed_from_name column if it doesn't exist (migration for existing databases)
+    try {
+      await sql`
+        ALTER TABLE books ADD COLUMN IF NOT EXISTS borrowed_from_name VARCHAR(255);
+      `;
+    } catch {
+      // Column might already exist, ignore error
+    }
 
     await sql`
       CREATE INDEX IF NOT EXISTS idx_books_owner ON books(owner_username);
@@ -67,6 +77,7 @@ export async function getUserBooks(username: string) {
     SELECT * FROM books
     WHERE owner_username = ${normalizedUsername}
     AND lent_to_name IS NULL
+    AND (borrowed_from_name IS NULL OR borrowed_from_name = '')
     ORDER BY created_at DESC
   `;
 
@@ -78,10 +89,12 @@ export async function getUserBooks(username: string) {
     ORDER BY created_at DESC
   `;
 
-  // Books borrowed from others
+  // Books borrowed from others (marked by user as borrowing)
   const borrowed = await sql`
     SELECT * FROM books
-    WHERE borrower_username = ${normalizedUsername}
+    WHERE owner_username = ${normalizedUsername}
+    AND borrowed_from_name IS NOT NULL
+    AND borrowed_from_name != ''
     ORDER BY created_at DESC
   `;
 
@@ -97,13 +110,14 @@ export async function addBook(
   title: string,
   author: string,
   coverUrl: string | null,
-  openLibraryKey: string
+  openLibraryKey: string,
+  borrowedFromName?: string
 ) {
   const normalizedUsername = username.toLowerCase().trim();
 
   const result = await sql`
-    INSERT INTO books (title, author, cover_url, open_library_key, owner_username)
-    VALUES (${title}, ${author}, ${coverUrl}, ${openLibraryKey}, ${normalizedUsername})
+    INSERT INTO books (title, author, cover_url, open_library_key, owner_username, borrowed_from_name)
+    VALUES (${title}, ${author}, ${coverUrl}, ${openLibraryKey}, ${normalizedUsername}, ${borrowedFromName || null})
     RETURNING *
   `;
 
@@ -127,6 +141,16 @@ export async function returnBook(bookId: string) {
   const result = await sql`
     UPDATE books
     SET lent_to_name = NULL, borrower_username = NULL
+    WHERE id = ${bookId}
+    RETURNING *
+  `;
+
+  return result.rows[0];
+}
+
+export async function returnBorrowedBook(bookId: string) {
+  const result = await sql`
+    DELETE FROM books
     WHERE id = ${bookId}
     RETURNING *
   `;

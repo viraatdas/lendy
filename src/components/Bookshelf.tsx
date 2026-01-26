@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Book } from '@/lib/types';
 import BookCard from './BookCard';
 import BookSearch from './BookSearch';
+import AddBookModal from './AddBookModal';
 import LendModal from './LendModal';
 
 interface BookshelfProps {
@@ -21,6 +22,12 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
   const [books, setBooks] = useState<BooksState>({ owned: [], lending: [], borrowed: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<{
+    title: string;
+    author: string;
+    coverUrl: string | null;
+    openLibraryKey: string;
+  } | null>(null);
   const [lendModal, setLendModal] = useState<{ isOpen: boolean; bookId: string; bookTitle: string }>({
     isOpen: false,
     bookId: '',
@@ -43,22 +50,30 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
     fetchBooks();
   }, [fetchBooks]);
 
-  const handleAddBook = async (book: {
+  const handleSelectBook = (book: {
     title: string;
     author: string;
     coverUrl: string | null;
     openLibraryKey: string;
   }) => {
+    setSelectedBook(book);
+    setIsSearchOpen(false);
+  };
+
+  const handleAddBook = async (type: 'own' | 'borrowing', borrowedFrom?: string) => {
+    if (!selectedBook) return;
+
     try {
       const response = await fetch('/api/books', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username,
-          title: book.title,
-          author: book.author,
-          coverUrl: book.coverUrl,
-          openLibraryKey: book.openLibraryKey,
+          title: selectedBook.title,
+          author: selectedBook.author,
+          coverUrl: selectedBook.coverUrl,
+          openLibraryKey: selectedBook.openLibraryKey,
+          borrowedFromName: type === 'borrowing' ? borrowedFrom : undefined,
         }),
       });
 
@@ -67,6 +82,8 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
       }
     } catch (error) {
       console.error('Error adding book:', error);
+    } finally {
+      setSelectedBook(null);
     }
   };
 
@@ -115,6 +132,24 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
     }
   };
 
+  const handleReturnBorrowed = async (bookId: string) => {
+    if (!confirm('Mark this book as returned to its owner?')) return;
+
+    try {
+      const response = await fetch(`/api/books/${bookId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+
+      if (response.ok) {
+        fetchBooks();
+      }
+    } catch (error) {
+      console.error('Error returning borrowed book:', error);
+    }
+  };
+
   const handleDelete = async (bookId: string) => {
     if (!confirm('Are you sure you want to remove this book?')) return;
 
@@ -133,35 +168,39 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
     }
   };
 
-  const totalBooks = books.owned.length + books.lending.length;
+  const totalBooks = books.owned.length + books.lending.length + books.borrowed.length;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen pixel-pattern">
       {/* Header */}
-      <header className="border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 py-6">
+      <header className="border-b-4 border-[#2d2d2d] bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-extralight tracking-tight text-black">
-                Lendy
+            <div className="flex items-center gap-4">
+              <h1 className="text-3xl font-bold" style={{ fontFamily: 'Silkscreen, cursive' }}>
+                <span className="text-[#ff6b9d]">L</span>
+                <span className="text-[#7c5cff]">e</span>
+                <span className="text-[#ffd700]">n</span>
+                <span className="text-[#4ade80]">d</span>
+                <span className="text-[#60a5fa]">y</span>
               </h1>
-              <p className="text-xs font-light text-gray-400 mt-1">
-                {username}&apos;s library
-              </p>
+              <div className="pixel-card px-3 py-1 text-sm">
+                👤 {username}
+              </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className="px-4 py-2 text-sm font-light text-white bg-black hover:bg-gray-800 transition-colors"
+                className="pixel-btn pixel-btn-pink text-sm"
               >
-                + Add Book
+                📖 Add Book
               </button>
               <button
                 onClick={onLogout}
-                className="text-xs font-light text-gray-400 hover:text-black transition-colors"
+                className="pixel-btn text-sm"
               >
-                Switch User
+                🚪 Switch
               </button>
             </div>
           </div>
@@ -169,37 +208,43 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-12">
+      <main className="max-w-6xl mx-auto px-6 py-8">
         {isLoading ? (
           <div className="text-center py-24">
-            <p className="text-sm font-light text-gray-400">Loading your library...</p>
+            <div className="text-6xl mb-4 float-animation">📚</div>
+            <p className="text-xl text-[#666]">Loading your library...</p>
           </div>
-        ) : totalBooks === 0 && books.borrowed.length === 0 ? (
+        ) : totalBooks === 0 ? (
           <div className="text-center py-24">
-            <p className="text-sm font-light text-gray-400 mb-4">
-              Your library is empty
-            </p>
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="text-sm font-light text-black underline underline-offset-4 hover:no-underline transition-all"
-            >
-              Add your first book
-            </button>
+            <div className="pixel-card inline-block p-8 mb-6">
+              <div className="text-6xl mb-4">📚</div>
+              <p className="text-xl text-[#666] mb-4">
+                Your shelf is empty!
+              </p>
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className="pixel-btn pixel-btn-pink"
+              >
+                ✨ Add your first book
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="space-y-16">
+          <div className="space-y-8">
             {/* My Books Section */}
             {books.owned.length > 0 && (
-              <section>
-                <div className="flex items-center gap-4 mb-8">
-                  <h2 className="text-sm font-light text-black uppercase tracking-widest">
+              <section className="pixel-card p-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <span className="text-2xl">📚</span>
+                  <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
                     My Books
                   </h2>
-                  <span className="text-xs font-light text-gray-300">
+                  <div className="flex-1 pixel-divider" />
+                  <span className="pixel-card px-3 py-1 text-sm bg-[#4ade80]/20">
                     {books.owned.length}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {books.owned.map((book) => (
                     <BookCard
                       key={book.id}
@@ -215,16 +260,18 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
 
             {/* Lending Section */}
             {books.lending.length > 0 && (
-              <section>
-                <div className="flex items-center gap-4 mb-8">
-                  <h2 className="text-sm font-light text-black uppercase tracking-widest">
+              <section className="pixel-card p-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <span className="text-2xl">🤝</span>
+                  <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
                     Lending Out
                   </h2>
-                  <span className="text-xs font-light text-gray-300">
+                  <div className="flex-1 pixel-divider" />
+                  <span className="pixel-card px-3 py-1 text-sm bg-[#ff6b9d]/20">
                     {books.lending.length}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {books.lending.map((book) => (
                     <BookCard
                       key={book.id}
@@ -239,21 +286,24 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
 
             {/* Borrowed Section */}
             {books.borrowed.length > 0 && (
-              <section>
-                <div className="flex items-center gap-4 mb-8">
-                  <h2 className="text-sm font-light text-black uppercase tracking-widest">
+              <section className="pixel-card p-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <span className="text-2xl">📖</span>
+                  <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
                     Borrowed
                   </h2>
-                  <span className="text-xs font-light text-gray-300">
+                  <div className="flex-1 pixel-divider" />
+                  <span className="pixel-card px-3 py-1 text-sm bg-[#7c5cff]/20">
                     {books.borrowed.length}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {books.borrowed.map((book) => (
                     <BookCard
                       key={book.id}
                       book={book}
                       type="borrowed"
+                      onReturnBorrowed={handleReturnBorrowed}
                     />
                   ))}
                 </div>
@@ -263,11 +313,28 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
         )}
       </main>
 
+      {/* Footer */}
+      <footer className="border-t-4 border-[#2d2d2d] mt-8 bg-white/80">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <p className="text-center text-[#888]">
+            ✨ Track what you own, lend, and borrow ✨
+          </p>
+        </div>
+      </footer>
+
       {/* Search Modal */}
       <BookSearch
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onSelectBook={handleAddBook}
+        onSelectBook={handleSelectBook}
+      />
+
+      {/* Add Book Modal */}
+      <AddBookModal
+        isOpen={selectedBook !== null}
+        book={selectedBook}
+        onClose={() => setSelectedBook(null)}
+        onConfirm={handleAddBook}
       />
 
       {/* Lend Modal */}
