@@ -26,7 +26,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
       clearTimeout(debounceRef.current);
     }
 
-    if (!query.trim() || query.trim().length < 2) {
+    if (!query.trim()) {
       setResults([]);
       setIsLoading(false);
       return;
@@ -34,6 +34,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
 
     setIsLoading(true);
 
+    // Shorter debounce for snappier feel
     debounceRef.current = setTimeout(async () => {
       try {
         const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
@@ -45,7 +46,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
       } finally {
         setIsLoading(false);
       }
-    }, 300);
+    }, 200);
 
     return () => {
       if (debounceRef.current) {
@@ -164,7 +165,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
                 </button>
               ))}
             </div>
-          ) : query.trim().length >= 2 && !isLoading ? (
+          ) : query.trim() && !isLoading ? (
             <div className="p-8 text-center">
               <div className="text-4xl mb-2">😢</div>
               <p className="text-[#888]">No books found</p>
