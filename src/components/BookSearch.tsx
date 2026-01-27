@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { OpenLibraryBook } from '@/lib/types';
+import { GoogleBook } from '@/lib/types';
 
 interface BookSearchProps {
   isOpen: boolean;
@@ -16,7 +16,7 @@ interface BookSearchProps {
 
 export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearchProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<OpenLibraryBook[]>([]);
+  const [results, setResults] = useState<GoogleBook[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -26,7 +26,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
       clearTimeout(debounceRef.current);
     }
 
-    if (!query.trim()) {
+    if (!query.trim() || query.trim().length < 2) {
       setResults([]);
       setIsLoading(false);
       return;
@@ -39,7 +39,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
       try {
         const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
         const data = await response.json();
-        setResults((data.docs || []).slice(0, 12));
+        setResults(data.items || []);
       } catch (error) {
         console.error('Search error:', error);
         setResults([]);
@@ -61,16 +61,16 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
     }
   }, [isOpen]);
 
-  const handleSelect = (book: OpenLibraryBook) => {
-    const coverUrl = book.cover_i
-      ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`
-      : null;
+  const handleSelect = (book: GoogleBook) => {
+    const coverUrl = book.volumeInfo.imageLinks?.thumbnail ||
+                     book.volumeInfo.imageLinks?.smallThumbnail ||
+                     null;
 
     onSelectBook({
-      title: book.title,
-      author: book.author_name?.[0] || 'Unknown Author',
+      title: book.volumeInfo.title,
+      author: book.volumeInfo.authors?.[0] || 'Unknown Author',
       coverUrl,
-      openLibraryKey: book.key,
+      openLibraryKey: book.id, // Using Google Books ID
     });
 
     setQuery('');
@@ -124,18 +124,18 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
         <div className="max-h-[60vh] overflow-y-auto">
           {results.length > 0 ? (
             <div>
-              {results.map((book, index) => (
+              {results.map((book) => (
                 <button
-                  key={book.key}
+                  key={book.id}
                   onClick={() => handleSelect(book)}
                   className="w-full flex gap-4 p-4 text-left hover:bg-[#ff6b9d]/10 transition-colors group border-b-2 border-[#eee] last:border-0"
                 >
                   {/* Cover */}
                   <div className="w-12 h-16 flex-shrink-0 bg-[#eee] border-2 border-[#2d2d2d] overflow-hidden">
-                    {book.cover_i ? (
+                    {book.volumeInfo.imageLinks?.smallThumbnail ? (
                       <img
-                        src={`https://covers.openlibrary.org/b/id/${book.cover_i}-S.jpg`}
-                        alt={book.title}
+                        src={book.volumeInfo.imageLinks.smallThumbnail}
+                        alt={book.volumeInfo.title}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -148,12 +148,12 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base group-hover:text-[#ff6b9d] transition-colors line-clamp-1" style={{ fontFamily: 'VT323, monospace' }}>
-                      {book.title}
+                      {book.volumeInfo.title}
                     </h3>
                     <p className="text-sm text-[#888] line-clamp-1">
-                      {book.author_name?.[0] || 'Unknown Author'}
-                      {book.first_publish_year && (
-                        <span className="text-[#aaa]"> · {book.first_publish_year}</span>
+                      {book.volumeInfo.authors?.[0] || 'Unknown Author'}
+                      {book.volumeInfo.publishedDate && (
+                        <span className="text-[#aaa]"> · {book.volumeInfo.publishedDate.substring(0, 4)}</span>
                       )}
                     </p>
                   </div>
@@ -165,7 +165,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
                 </button>
               ))}
             </div>
-          ) : query.trim() && !isLoading ? (
+          ) : query.trim().length >= 2 && !isLoading ? (
             <div className="p-8 text-center">
               <div className="text-4xl mb-2">😢</div>
               <p className="text-[#888]">No books found</p>

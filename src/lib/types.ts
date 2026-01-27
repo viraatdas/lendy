@@ -16,6 +16,26 @@ export interface User {
   created_at: string;
 }
 
+// Google Books API types
+export interface GoogleBook {
+  id: string;
+  volumeInfo: {
+    title: string;
+    authors?: string[];
+    publishedDate?: string;
+    imageLinks?: {
+      thumbnail?: string;
+      smallThumbnail?: string;
+    };
+  };
+}
+
+export interface GoogleBooksResponse {
+  items?: GoogleBook[];
+  totalItems: number;
+}
+
+// Legacy Open Library types (keeping for reference)
 export interface OpenLibraryBook {
   key: string;
   title: string;
