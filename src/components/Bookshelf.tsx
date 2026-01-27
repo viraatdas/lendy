@@ -6,6 +6,7 @@ import BookCard from './BookCard';
 import BookSearch from './BookSearch';
 import AddBookModal from './AddBookModal';
 import LendModal from './LendModal';
+import ConfirmModal from './ConfirmModal';
 
 interface BookshelfProps {
   username: string;
@@ -16,6 +17,16 @@ interface BooksState {
   owned: Book[];
   lending: Book[];
   borrowed: Book[];
+}
+
+interface ConfirmState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  icon: string;
+  variant: 'danger' | 'warning' | 'info';
+  confirmText: string;
+  onConfirm: () => void;
 }
 
 export default function Bookshelf({ username, onLogout }: BookshelfProps) {
@@ -33,6 +44,19 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
     bookId: '',
     bookTitle: '',
   });
+  const [confirmModal, setConfirmModal] = useState<ConfirmState>({
+    isOpen: false,
+    title: '',
+    message: '',
+    icon: '❓',
+    variant: 'info',
+    confirmText: 'Confirm',
+    onConfirm: () => {},
+  });
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
 
   const fetchBooks = useCallback(async () => {
     try {
@@ -132,40 +156,60 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
     }
   };
 
-  const handleReturnBorrowed = async (bookId: string) => {
-    if (!confirm('Mark this book as returned to its owner?')) return;
+  const handleReturnBorrowed = (bookId: string) => {
+    const book = books.borrowed.find((b) => b.id === bookId);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Return Book',
+      message: `Mark "${book?.title}" as returned to ${book?.borrowed_from_name}?`,
+      icon: '📚',
+      variant: 'info',
+      confirmText: 'Yes, returned!',
+      onConfirm: async () => {
+        closeConfirmModal();
+        try {
+          const response = await fetch(`/api/books/${bookId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username }),
+          });
 
-    try {
-      const response = await fetch(`/api/books/${bookId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
-      });
-
-      if (response.ok) {
-        fetchBooks();
-      }
-    } catch (error) {
-      console.error('Error returning borrowed book:', error);
-    }
+          if (response.ok) {
+            fetchBooks();
+          }
+        } catch (error) {
+          console.error('Error returning borrowed book:', error);
+        }
+      },
+    });
   };
 
-  const handleDelete = async (bookId: string) => {
-    if (!confirm('Are you sure you want to remove this book?')) return;
+  const handleDelete = (bookId: string) => {
+    const book = books.owned.find((b) => b.id === bookId);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Book',
+      message: `Are you sure you want to remove "${book?.title}" from your library?`,
+      icon: '🗑️',
+      variant: 'danger',
+      confirmText: 'Remove',
+      onConfirm: async () => {
+        closeConfirmModal();
+        try {
+          const response = await fetch(`/api/books/${bookId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username }),
+          });
 
-    try {
-      const response = await fetch(`/api/books/${bookId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
-      });
-
-      if (response.ok) {
-        fetchBooks();
-      }
-    } catch (error) {
-      console.error('Error deleting book:', error);
-    }
+          if (response.ok) {
+            fetchBooks();
+          }
+        } catch (error) {
+          console.error('Error deleting book:', error);
+        }
+      },
+    });
   };
 
   const totalBooks = books.owned.length + books.lending.length + books.borrowed.length;
@@ -343,6 +387,18 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
         bookTitle={lendModal.bookTitle}
         onClose={() => setLendModal({ isOpen: false, bookId: '', bookTitle: '' })}
         onConfirm={handleLendConfirm}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        icon={confirmModal.icon}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
       />
     </div>
   );
