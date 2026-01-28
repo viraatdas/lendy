@@ -55,7 +55,7 @@ export default function AddBookModal({ isOpen, book, onClose, onConfirm }: AddBo
         </div>
 
         {/* Book Preview */}
-        <div className="p-4 border-b-2 border-[#eee] flex gap-4">
+        <div className="p-3 sm:p-4 border-b-2 border-[#eee] flex gap-4">
           <div className="w-16 h-24 flex-shrink-0 bg-[#eee] border-2 border-[#2d2d2d] overflow-hidden">
             {book.coverUrl ? (
               <img
@@ -77,7 +77,7 @@ export default function AddBookModal({ isOpen, book, onClose, onConfirm }: AddBo
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-4">
           {/* Type Selection */}
           <div className="space-y-3">
             <label className="block text-sm" style={{ fontFamily: 'Silkscreen, cursive' }}>

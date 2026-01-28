@@ -87,7 +87,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-4 sm:pt-20 px-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-[#2d2d2d]/50 backdrop-blur-sm"
@@ -131,7 +131,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
                   className="w-full flex gap-4 p-4 text-left hover:bg-[#ff6b9d]/10 transition-colors group border-b-2 border-[#eee] last:border-0"
                 >
                   {/* Cover */}
-                  <div className="w-12 h-16 flex-shrink-0 bg-[#eee] border-2 border-[#2d2d2d] overflow-hidden">
+                  <div className="w-14 h-20 sm:w-12 sm:h-16 flex-shrink-0 bg-[#eee] border-2 border-[#2d2d2d] overflow-hidden">
                     {book.volumeInfo.imageLinks?.smallThumbnail ? (
                       <img
                         src={book.volumeInfo.imageLinks.smallThumbnail}
@@ -159,7 +159,7 @@ export default function BookSearch({ isOpen, onClose, onSelectBook }: BookSearch
                   </div>
 
                   {/* Add indicator */}
-                  <div className="flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity text-[#ff6b9d]">
+                  <div className="flex-shrink-0 self-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[#ff6b9d]">
                     ➕
                   </div>
                 </button>

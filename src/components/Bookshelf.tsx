@@ -218,10 +218,10 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
     <div className="min-h-screen pixel-pattern">
       {/* Header */}
       <header className="border-b-4 border-[#2d2d2d] bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-4">
-              <h1 className="text-3xl font-bold" style={{ fontFamily: 'Silkscreen, cursive' }}>
+              <h1 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Silkscreen, cursive' }}>
                 <span className="text-[#ff6b9d]">L</span>
                 <span className="text-[#7c5cff]">e</span>
                 <span className="text-[#ffd700]">n</span>
@@ -252,7 +252,7 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {isLoading ? (
           <div className="text-center py-24">
             <div className="text-6xl mb-4 float-animation">📚</div>
@@ -277,7 +277,7 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
           <div className="space-y-8">
             {/* My Books Section */}
             {books.owned.length > 0 && (
-              <section className="pixel-card p-6">
+              <section className="pixel-card p-4 sm:p-6">
                 <div className="flex items-center gap-4 mb-6">
                   <span className="text-2xl">📚</span>
                   <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
@@ -304,7 +304,7 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
 
             {/* Lending Section */}
             {books.lending.length > 0 && (
-              <section className="pixel-card p-6">
+              <section className="pixel-card p-4 sm:p-6">
                 <div className="flex items-center gap-4 mb-6">
                   <span className="text-2xl">🤝</span>
                   <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
@@ -330,7 +330,7 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
 
             {/* Borrowed Section */}
             {books.borrowed.length > 0 && (
-              <section className="pixel-card p-6">
+              <section className="pixel-card p-4 sm:p-6">
                 <div className="flex items-center gap-4 mb-6">
                   <span className="text-2xl">📖</span>
                   <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
@@ -359,7 +359,7 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
 
       {/* Footer */}
       <footer className="border-t-4 border-[#2d2d2d] mt-8 bg-white/80">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <p className="text-center text-[#888]">
             ✨ Track what you own, lend, and borrow ✨
           </p>

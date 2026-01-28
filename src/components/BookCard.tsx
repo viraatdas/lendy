@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Book } from '@/lib/types';
 
 interface BookCardProps {
@@ -13,13 +13,25 @@ interface BookCardProps {
 }
 
 export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowed, onDelete }: BookCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+
+  const handleMouseEnter = useCallback(() => setShowActions(true), []);
+  const handleMouseLeave = useCallback(() => setShowActions(false), []);
+
+  const handleTap = useCallback((e: React.MouseEvent) => {
+    // On touch devices, toggle actions on tap
+    if (window.matchMedia('(hover: none)').matches) {
+      e.preventDefault();
+      setShowActions(prev => !prev);
+    }
+  }, []);
 
   return (
     <div
       className="group relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleTap}
     >
       {/* Book Cover */}
       <div className="relative aspect-[2/3] w-full overflow-hidden pixel-card transition-all duration-200">
@@ -44,7 +56,7 @@ export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowe
         {type === 'lending' && book.lent_to_name && (
           <div
             className={`absolute inset-0 bg-[#ff6b9d]/90 flex items-center justify-center transition-opacity duration-300 ${
-              isHovered ? 'opacity-100' : 'opacity-0'
+              showActions ? 'opacity-100' : 'opacity-0'
             }`}
           >
             <div className="text-center px-4">
@@ -62,7 +74,7 @@ export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowe
         {type === 'borrowed' && book.borrowed_from_name && (
           <div
             className={`absolute inset-0 bg-[#7c5cff]/90 flex items-center justify-center transition-opacity duration-300 ${
-              isHovered ? 'opacity-100' : 'opacity-0'
+              showActions ? 'opacity-100' : 'opacity-0'
             }`}
           >
             <div className="text-center px-4">
@@ -77,13 +89,13 @@ export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowe
         )}
 
         {/* Action buttons overlay */}
-        {isHovered && (
+        {showActions && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#2d2d2d] to-transparent p-3 transition-opacity duration-300">
             <div className="flex gap-2 justify-center">
               {type === 'owned' && onLend && (
                 <button
-                  onClick={() => onLend(book.id)}
-                  className="px-3 py-1 text-xs text-white bg-[#ff6b9d] border-2 border-[#2d2d2d] hover:bg-[#ff8fb5] transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onLend(book.id); }}
+                  className="min-h-[44px] min-w-[44px] px-3 py-2 text-xs text-white bg-[#ff6b9d] border-2 border-[#2d2d2d] active:bg-[#ff8fb5] sm:hover:bg-[#ff8fb5] transition-colors"
                   style={{ fontFamily: 'Silkscreen, cursive' }}
                 >
                   Lend
@@ -91,8 +103,8 @@ export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowe
               )}
               {type === 'lending' && onReturn && (
                 <button
-                  onClick={() => onReturn(book.id)}
-                  className="px-3 py-1 text-xs text-white bg-[#4ade80] border-2 border-[#2d2d2d] hover:bg-[#6ee7a0] transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onReturn(book.id); }}
+                  className="min-h-[44px] min-w-[44px] px-3 py-2 text-xs text-white bg-[#4ade80] border-2 border-[#2d2d2d] active:bg-[#6ee7a0] sm:hover:bg-[#6ee7a0] transition-colors"
                   style={{ fontFamily: 'Silkscreen, cursive' }}
                 >
                   Got it!
@@ -100,8 +112,8 @@ export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowe
               )}
               {type === 'borrowed' && onReturnBorrowed && (
                 <button
-                  onClick={() => onReturnBorrowed(book.id)}
-                  className="px-3 py-1 text-xs text-white bg-[#4ade80] border-2 border-[#2d2d2d] hover:bg-[#6ee7a0] transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onReturnBorrowed(book.id); }}
+                  className="min-h-[44px] min-w-[44px] px-3 py-2 text-xs text-white bg-[#4ade80] border-2 border-[#2d2d2d] active:bg-[#6ee7a0] sm:hover:bg-[#6ee7a0] transition-colors"
                   style={{ fontFamily: 'Silkscreen, cursive' }}
                 >
                   Return
@@ -109,8 +121,8 @@ export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowe
               )}
               {type === 'owned' && onDelete && (
                 <button
-                  onClick={() => onDelete(book.id)}
-                  className="px-3 py-1 text-xs text-white bg-[#ef4444] border-2 border-[#2d2d2d] hover:bg-[#f87171] transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onDelete(book.id); }}
+                  className="min-h-[44px] min-w-[44px] px-3 py-2 text-xs text-white bg-[#ef4444] border-2 border-[#2d2d2d] active:bg-[#f87171] sm:hover:bg-[#f87171] transition-colors"
                   style={{ fontFamily: 'Silkscreen, cursive' }}
                 >
                   ✕

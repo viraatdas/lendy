@@ -20,16 +20,16 @@ export default function UsernameForm({ onSubmit, isLoading }: UsernameFormProps)
   return (
     <div className="min-h-screen flex items-center justify-center px-4 pixel-pattern">
       {/* Decorative floating books */}
-      <div className="fixed top-20 left-10 text-4xl float-animation opacity-50">📚</div>
-      <div className="fixed top-40 right-20 text-3xl float-animation opacity-50" style={{ animationDelay: '1s' }}>📖</div>
-      <div className="fixed bottom-32 left-20 text-3xl float-animation opacity-50" style={{ animationDelay: '0.5s' }}>📕</div>
-      <div className="fixed bottom-20 right-10 text-4xl float-animation opacity-50" style={{ animationDelay: '1.5s' }}>📗</div>
+      <div className="hidden sm:fixed sm:block top-20 left-10 text-4xl float-animation opacity-50">📚</div>
+      <div className="hidden sm:fixed sm:block top-40 right-20 text-3xl float-animation opacity-50" style={{ animationDelay: '1s' }}>📖</div>
+      <div className="hidden sm:fixed sm:block bottom-32 left-20 text-3xl float-animation opacity-50" style={{ animationDelay: '0.5s' }}>📕</div>
+      <div className="hidden sm:fixed sm:block bottom-20 right-10 text-4xl float-animation opacity-50" style={{ animationDelay: '1.5s' }}>📗</div>
 
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="inline-block pixel-card p-6 mb-6">
-            <h1 className="text-5xl font-bold tracking-tight" style={{ fontFamily: 'Silkscreen, cursive' }}>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight" style={{ fontFamily: 'Silkscreen, cursive' }}>
               <span className="text-[#ff6b9d]">L</span>
               <span className="text-[#7c5cff]">e</span>
               <span className="text-[#ffd700]">n</span>

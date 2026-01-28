@@ -57,7 +57,7 @@ export default function LendModal({ isOpen, bookTitle, onClose, onConfirm }: Len
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-4">
           <div className="space-y-2">
             <label className="block text-sm" style={{ fontFamily: 'Silkscreen, cursive' }}>
               Lending to: *

@@ -82,19 +82,13 @@ export default function ConfirmModal({
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 text-white border-none px-6 py-3 cursor-pointer transition-transform"
+            className="flex-1 text-white border-none px-6 py-3 cursor-pointer transition-transform active:translate-y-0.5"
             style={{
               fontFamily: 'Silkscreen, cursive',
               fontSize: '14px',
               boxShadow: styles.confirmShadow,
               backgroundColor: variant === 'danger' ? '#ef4444' : variant === 'warning' ? '#ffd700' : '#7c5cff',
               color: variant === 'warning' ? '#2d2d2d' : 'white',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translate(-2px, -2px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translate(0, 0)';
             }}
           >
             {confirmText}

@@ -82,9 +82,30 @@ body {
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.pixel-card:hover {
-  transform: translate(-3px, -3px);
-  box-shadow: 9px 9px 0 #2d2d2d;
+@media (hover: hover) {
+  .pixel-card:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 9px 9px 0 #2d2d2d;
+  }
+}
+
+@media (max-width: 639px) {
+  .pixel-btn {
+    padding: 10px 16px;
+  }
+  .pixel-card {
+    box-shadow: 4px 4px 0 #2d2d2d;
+  }
+}
+
+@media (hover: none) {
+  .pixel-btn:hover {
+    transform: none;
+    box-shadow: 4px 4px 0 #1a1a1a, -2px -2px 0 #4a4a4a inset;
+  }
+  .pixel-btn-pink:hover {
+    box-shadow: 4px 4px 0 #cc5580, -2px -2px 0 #ff8fb5 inset;
+  }
 }
 
 /* Custom scrollbar */
