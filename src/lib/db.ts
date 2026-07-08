@@ -285,51 +285,64 @@ export async function getReaders(excludeUsername?: string) {
   const users = await sql`SELECT username FROM users`;
 
   const counts = await sql`
-    SELECT owner_username,
-      COUNT(*)::int AS book_count,
-      MAX(GREATEST(created_at, COALESCE(updated_at, created_at))) AS last_activity
+    SELECT owner_username, COUNT(*)::int AS book_count
     FROM books
     GROUP BY owner_username
   `;
 
-  // Latest book (by activity) per user, to describe their last action
+  // Most recent activity per user, across all the kinds of things they can do:
+  // adding, borrowing, lending, getting a book back, and requesting.
   const latest = await sql`
-    SELECT DISTINCT ON (owner_username)
-      owner_username, title, lent_to_name,
-      GREATEST(created_at, COALESCE(updated_at, created_at)) AS activity
-    FROM books
-    ORDER BY owner_username, GREATEST(created_at, COALESCE(updated_at, created_at)) DESC
+    SELECT DISTINCT ON (username) username, ts, action FROM (
+      -- Activity on a book from its owner's perspective
+      SELECT owner_username AS username,
+        GREATEST(created_at, COALESCE(updated_at, created_at)) AS ts,
+        CASE
+          WHEN lent_to_name IS NOT NULL THEN 'Lent "' || title || '" to ' || lent_to_name
+          WHEN borrowed_from_name IS NOT NULL AND borrowed_from_name <> ''
+            THEN 'Borrowed "' || title || '"'
+          WHEN updated_at IS NOT NULL AND updated_at > created_at + interval '1 second'
+            THEN 'Got "' || title || '" back'
+          ELSE 'Added "' || title || '"'
+        END AS action
+      FROM books
+      UNION ALL
+      -- A book lent to this user through Lendy (they're the borrower)
+      SELECT borrower_username AS username,
+        COALESCE(updated_at, created_at) AS ts,
+        'Borrowed "' || title || '"' AS action
+      FROM books
+      WHERE borrower_username IS NOT NULL AND borrower_username <> owner_username
+      UNION ALL
+      -- A pending/decided request this user made
+      SELECT r.requester_username AS username,
+        r.created_at AS ts,
+        'Requested "' || b.title || '"' AS action
+      FROM requests r
+      JOIN books b ON b.id = r.book_id
+    ) act
+    ORDER BY username, ts DESC
   `;
 
-  const countMap = new Map<string, { book_count: number; last_activity: string | null }>();
+  const countMap = new Map<string, number>();
   for (const row of counts.rows) {
-    countMap.set(row.owner_username, {
-      book_count: row.book_count,
-      last_activity: row.last_activity,
-    });
+    countMap.set(row.owner_username, row.book_count);
   }
 
-  const latestMap = new Map<string, { title: string; lent_to_name: string | null }>();
+  const latestMap = new Map<string, { ts: string; action: string }>();
   for (const row of latest.rows) {
-    latestMap.set(row.owner_username, { title: row.title, lent_to_name: row.lent_to_name });
+    latestMap.set(row.username, { ts: row.ts, action: row.action });
   }
 
   const readers = users.rows
     .map((u) => {
       const username = u.username as string;
-      const c = countMap.get(username);
       const l = latestMap.get(username);
-      let last_action = 'Just joined';
-      if (l) {
-        last_action = l.lent_to_name
-          ? `Lent "${l.title}" to ${l.lent_to_name}`
-          : `Added "${l.title}"`;
-      }
       return {
         username,
-        book_count: c?.book_count ?? 0,
-        last_activity: c?.last_activity ?? null,
-        last_action,
+        book_count: countMap.get(username) ?? 0,
+        last_activity: l?.ts ?? null,
+        last_action: l?.action ?? 'Just joined',
       };
     })
     .filter((r) => r.username !== exclude)
