@@ -55,6 +55,28 @@ export interface PublicBook extends Book {
   requested: boolean;
 }
 
+// A comment on a book, with like info relative to the viewer
+export interface Comment {
+  id: string;
+  book_id: string;
+  username: string;
+  body: string;
+  created_at: string;
+  like_count: number;
+  liked: boolean;
+}
+
+// Book synopsis/metadata fetched from Google Books
+export interface BookSynopsis {
+  description: string | null;
+  pageCount: number | null;
+  categories: string[];
+  publishedDate: string | null;
+  averageRating: number | null;
+  ratingsCount: number | null;
+  publisher: string | null;
+}
+
 // Google Books API types
 export interface GoogleBook {
   id: string;

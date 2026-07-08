@@ -22,6 +22,8 @@ export default function ProfileSettingsModal({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -45,9 +47,33 @@ export default function ProfileSettingsModal({
   useEffect(() => {
     if (isOpen) {
       setError(null);
+      setDeleteConfirm(false);
       fetchProfile();
     }
   }, [isOpen, fetchProfile]);
+
+  const handleDelete = useCallback(async () => {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+      if (!res.ok) {
+        setError('Could not delete profile. Try again.');
+        setDeleting(false);
+        return;
+      }
+      // Wipe local identity and start fresh at the sign-in screen.
+      localStorage.removeItem('lendy_username');
+      window.location.href = '/';
+    } catch {
+      setError('Could not delete profile. Try again.');
+      setDeleting(false);
+    }
+  }, [username]);
 
   const handleSave = useCallback(
     async (e: React.FormEvent) => {
@@ -133,7 +159,8 @@ export default function ProfileSettingsModal({
                 className="block text-sm"
                 style={{ fontFamily: 'Silkscreen, cursive' }}
               >
-                Email for notifications
+                Email for notifications{' '}
+                <span className="text-[#888] lowercase">(optional)</span>
               </label>
               <input
                 type="email"
@@ -191,6 +218,45 @@ export default function ProfileSettingsModal({
               >
                 {saving ? 'Saving...' : '💾 Save'}
               </button>
+            </div>
+
+            {/* Danger zone */}
+            <div className="pt-4 mt-2 border-t-2 border-[#eee]">
+              {!deleteConfirm ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(true)}
+                  className="text-sm text-[#ef4444] underline"
+                  style={{ fontFamily: 'VT323, monospace' }}
+                >
+                  🗑️ Delete my profile
+                </button>
+              ) : (
+                <div className="space-y-3 border-2 border-[#ef4444] bg-[#ef4444]/5 p-3">
+                  <p className="text-sm text-[#b91c1c]" style={{ fontFamily: 'VT323, monospace' }}>
+                    This permanently deletes your account, all your books,
+                    requests, and comments. This <strong>cannot be undone</strong>.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirm(false)}
+                      className="pixel-btn flex-1 text-sm"
+                    >
+                      Keep it
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="flex-1 text-white border-2 border-[#2d2d2d] bg-[#ef4444] active:bg-[#f87171] sm:hover:bg-[#f87171] px-3 py-2 text-xs disabled:opacity-50"
+                      style={{ fontFamily: 'Silkscreen, cursive' }}
+                    >
+                      {deleting ? 'Deleting...' : 'Yes, delete everything'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </form>
         )}

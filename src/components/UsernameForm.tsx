@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface UsernameFormProps {
   onSubmit: (username: string) => void;
@@ -9,6 +9,33 @@ interface UsernameFormProps {
 
 export default function UsernameForm({ onSubmit, isLoading }: UsernameFormProps) {
   const [username, setUsername] = useState('');
+  const [status, setStatus] = useState<'idle' | 'checking' | 'existing' | 'new'>('idle');
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced check: tell the user whether this name is already taken (welcome
+  // back) or fresh. setState only happens in the async callback, never
+  // synchronously in the effect body.
+  useEffect(() => {
+    const name = username.trim();
+    if (name.length < 1) return;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/user?exists=1&username=${encodeURIComponent(name)}`);
+        const data = await res.json();
+        setStatus(data.exists ? 'existing' : 'new');
+      } catch {
+        setStatus('idle');
+      }
+    }, 400);
+    debounceRef.current = t;
+    return () => clearTimeout(t);
+  }, [username]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setUsername(value);
+    setStatus(value.trim().length < 1 ? 'idle' : 'checking');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,13 +83,23 @@ export default function UsernameForm({ onSubmit, isLoading }: UsernameFormProps)
               type="text"
               id="username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={handleChange}
               placeholder="Type here..."
               className="pixel-input w-full text-xl"
               maxLength={50}
               disabled={isLoading}
               autoFocus
             />
+            {status === 'existing' && (
+              <p className="mt-3 text-lg text-[#4ade80]" style={{ fontFamily: 'VT323, monospace' }}>
+                👋 Welcome back! We&apos;ll open your library.
+              </p>
+            )}
+            {status === 'new' && (
+              <p className="mt-3 text-lg text-[#7c5cff]" style={{ fontFamily: 'VT323, monospace' }}>
+                ✨ New reader — this name is all yours!
+              </p>
+            )}
           </div>
 
           <button

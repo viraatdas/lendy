@@ -11,6 +11,7 @@
   "dependencies": {
     "@vercel/postgres": "^0.10.0",
     "next": "16.1.5",
+    "posthog-js": "^1.398.2",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

@@ -53,6 +53,27 @@ export async function initializeDatabase() {
     await sql`CREATE INDEX IF NOT EXISTS idx_requests_owner ON requests(owner_username);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_requests_requester ON requests(requester_username);`;
 
+    await sql`
+      CREATE TABLE IF NOT EXISTS comments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+        username VARCHAR(255) NOT NULL REFERENCES users(username),
+        body TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS comment_likes (
+        comment_id UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+        username VARCHAR(255) NOT NULL REFERENCES users(username),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (comment_id, username)
+      );
+    `;
+
+    await sql`CREATE INDEX IF NOT EXISTS idx_comments_book ON comments(book_id);`;
+
     return { success: true };
   } catch (error) {
     console.error('Database initialization error:', error);
@@ -79,6 +100,13 @@ export async function getOrCreateUser(username: string) {
   return newUser.rows[0];
 }
 
+export async function userExists(username: string): Promise<boolean> {
+  const normalizedUsername = username.toLowerCase().trim();
+  if (!normalizedUsername) return false;
+  const result = await sql`SELECT 1 FROM users WHERE username = ${normalizedUsername} LIMIT 1`;
+  return result.rows.length > 0;
+}
+
 export async function getUserProfile(username: string) {
   const normalizedUsername = username.toLowerCase().trim();
   const result = await sql`
@@ -93,17 +121,52 @@ export async function updateUserProfile(
   contactMessage: string | null
 ) {
   const normalizedUsername = username.toLowerCase().trim();
+  const normalizedEmail = email ? email.toLowerCase().trim() : null;
 
   // Ensure the user exists first
   await getOrCreateUser(normalizedUsername);
 
+  // Enforce unique email across users.
+  if (normalizedEmail) {
+    const taken = await sql`
+      SELECT username FROM users
+      WHERE LOWER(email) = ${normalizedEmail} AND username != ${normalizedUsername}
+      LIMIT 1
+    `;
+    if (taken.rows.length > 0) {
+      return { error: 'email_taken' as const };
+    }
+  }
+
   const result = await sql`
     UPDATE users
-    SET email = ${email || null}, contact_message = ${contactMessage || null}
+    SET email = ${normalizedEmail}, contact_message = ${contactMessage || null}
     WHERE username = ${normalizedUsername}
     RETURNING username, email, contact_message
   `;
-  return result.rows[0];
+  return { user: result.rows[0] };
+}
+
+// Permanently delete a user and everything tied to them.
+export async function deleteUser(username: string) {
+  const u = username.toLowerCase().trim();
+
+  // Hand back any books this user had borrowed from others.
+  await sql`
+    UPDATE books SET lent_to_name = NULL, borrower_username = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE borrower_username = ${u} AND owner_username != ${u}
+  `;
+  // Likes this user gave on any comment.
+  await sql`DELETE FROM comment_likes WHERE username = ${u}`;
+  // Comments this user wrote (cascades likes on them).
+  await sql`DELETE FROM comments WHERE username = ${u}`;
+  // Requests to or from this user.
+  await sql`DELETE FROM requests WHERE requester_username = ${u} OR owner_username = ${u}`;
+  // Books this user owns (cascades comments/requests/likes on those books).
+  await sql`DELETE FROM books WHERE owner_username = ${u}`;
+  // Finally the user row.
+  const result = await sql`DELETE FROM users WHERE username = ${u} RETURNING username`;
+  return result.rows[0] || null;
 }
 
 export async function getUserBooks(username: string) {
@@ -124,11 +187,19 @@ export async function getUserBooks(username: string) {
     ORDER BY created_at DESC
   `;
 
+  // Books borrowed from others: either manually added by the user
+  // (owner_username = me, borrowed_from_name set) OR lent to the user through
+  // Lendy by another owner (borrower_username = me). For the latter, show the
+  // owner's name as who it was borrowed from.
   const borrowed = await sql`
-    SELECT * FROM books
-    WHERE owner_username = ${normalizedUsername}
-    AND borrowed_from_name IS NOT NULL
-    AND borrowed_from_name != ''
+    SELECT *,
+      COALESCE(NULLIF(borrowed_from_name, ''), owner_username) AS borrowed_from_name
+    FROM books
+    WHERE (owner_username = ${normalizedUsername}
+           AND borrowed_from_name IS NOT NULL
+           AND borrowed_from_name != '')
+       OR (borrower_username = ${normalizedUsername}
+           AND owner_username != ${normalizedUsername})
     ORDER BY created_at DESC
   `;
 
@@ -370,6 +441,42 @@ export async function getIncomingRequests(username: string) {
   return result.rows;
 }
 
+export async function getOutgoingRequests(username: string) {
+  const normalizedUsername = username.toLowerCase().trim();
+  const result = await sql`
+    SELECT r.id, r.book_id, r.requester_username, r.owner_username, r.status, r.created_at,
+           b.title, b.author, b.cover_url
+    FROM requests r
+    JOIN books b ON b.id = r.book_id
+    WHERE r.requester_username = ${normalizedUsername}
+    AND r.status IN ('pending', 'declined')
+    ORDER BY r.created_at DESC
+  `;
+  return result.rows;
+}
+
+export async function deleteRequest(id: string, requesterUsername: string) {
+  const requester = requesterUsername.toLowerCase().trim();
+  const result = await sql`
+    DELETE FROM requests
+    WHERE id = ${id} AND requester_username = ${requester}
+    RETURNING *
+  `;
+  return result.rows[0] || null;
+}
+
+// Retract a pending request by book (used from the library view where we
+// don't have the request id handy).
+export async function cancelRequestByBook(bookId: string, requesterUsername: string) {
+  const requester = requesterUsername.toLowerCase().trim();
+  const result = await sql`
+    DELETE FROM requests
+    WHERE book_id = ${bookId} AND requester_username = ${requester} AND status = 'pending'
+    RETURNING *
+  `;
+  return result.rows[0] || null;
+}
+
 export async function getRequestById(id: string) {
   const result = await sql`
     SELECT r.*, b.title, b.author, b.cover_url
@@ -378,6 +485,90 @@ export async function getRequestById(id: string) {
     WHERE r.id = ${id}
   `;
   return result.rows[0] || null;
+}
+
+// ---- Comments & likes (book detail view) ----
+
+export async function getComments(bookId: string, viewer: string, sort: 'top' | 'new') {
+  const normalizedViewer = viewer?.toLowerCase().trim() || '';
+
+  if (sort === 'top') {
+    const result = await sql`
+      SELECT c.id, c.book_id, c.username, c.body, c.created_at,
+        COUNT(cl.username)::int AS like_count,
+        BOOL_OR(cl.username = ${normalizedViewer}) AS liked
+      FROM comments c
+      LEFT JOIN comment_likes cl ON cl.comment_id = c.id
+      WHERE c.book_id = ${bookId}
+      GROUP BY c.id
+      ORDER BY like_count DESC, c.created_at DESC
+    `;
+    return result.rows;
+  }
+
+  const result = await sql`
+    SELECT c.id, c.book_id, c.username, c.body, c.created_at,
+      COUNT(cl.username)::int AS like_count,
+      BOOL_OR(cl.username = ${normalizedViewer}) AS liked
+    FROM comments c
+    LEFT JOIN comment_likes cl ON cl.comment_id = c.id
+    WHERE c.book_id = ${bookId}
+    GROUP BY c.id
+    ORDER BY c.created_at DESC
+  `;
+  return result.rows;
+}
+
+export async function addComment(bookId: string, username: string, body: string) {
+  const normalizedUsername = username.toLowerCase().trim();
+  await getOrCreateUser(normalizedUsername);
+  const result = await sql`
+    INSERT INTO comments (book_id, username, body)
+    VALUES (${bookId}, ${normalizedUsername}, ${body})
+    RETURNING id, book_id, username, body, created_at
+  `;
+  return { ...result.rows[0], like_count: 0, liked: false };
+}
+
+export async function deleteComment(id: string, username: string) {
+  const normalizedUsername = username.toLowerCase().trim();
+  const result = await sql`
+    DELETE FROM comments
+    WHERE id = ${id} AND username = ${normalizedUsername}
+    RETURNING id
+  `;
+  return result.rows[0] || null;
+}
+
+export async function toggleCommentLike(commentId: string, username: string) {
+  const normalizedUsername = username.toLowerCase().trim();
+  await getOrCreateUser(normalizedUsername);
+
+  const existing = await sql`
+    SELECT 1 FROM comment_likes
+    WHERE comment_id = ${commentId} AND username = ${normalizedUsername}
+  `;
+
+  let liked: boolean;
+  if (existing.rows.length > 0) {
+    await sql`
+      DELETE FROM comment_likes
+      WHERE comment_id = ${commentId} AND username = ${normalizedUsername}
+    `;
+    liked = false;
+  } else {
+    await sql`
+      INSERT INTO comment_likes (comment_id, username)
+      VALUES (${commentId}, ${normalizedUsername})
+      ON CONFLICT DO NOTHING
+    `;
+    liked = true;
+  }
+
+  const count = await sql`
+    SELECT COUNT(*)::int AS like_count FROM comment_likes WHERE comment_id = ${commentId}
+  `;
+  return { liked, like_count: count.rows[0].like_count as number };
 }
 
 export async function updateRequestStatus(

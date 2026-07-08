@@ -10,10 +10,10 @@ import ConfirmModal from './ConfirmModal';
 import ReadersModal from './ReadersModal';
 import ReaderLibraryModal from './ReaderLibraryModal';
 import ProfileSettingsModal from './ProfileSettingsModal';
+import BookDetailModal from './BookDetailModal';
 
 interface BookshelfProps {
   username: string;
-  onLogout: () => void;
 }
 
 interface BooksState {
@@ -32,14 +32,16 @@ interface ConfirmState {
   onConfirm: () => void;
 }
 
-export default function Bookshelf({ username, onLogout }: BookshelfProps) {
+export default function Bookshelf({ username }: BookshelfProps) {
   const [books, setBooks] = useState<BooksState>({ owned: [], lending: [], borrowed: [] });
   const [requests, setRequests] = useState<RequestItem[]>([]);
+  const [myRequests, setMyRequests] = useState<RequestItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isReadersOpen, setIsReadersOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [viewingReader, setViewingReader] = useState<string | null>(null);
+  const [detailBook, setDetailBook] = useState<Book | null>(null);
   const [selectedBook, setSelectedBook] = useState<{
     title: string;
     author: string;
@@ -79,9 +81,14 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
 
   const fetchRequests = useCallback(async () => {
     try {
-      const response = await fetch(`/api/requests?username=${encodeURIComponent(username)}`);
-      const data = await response.json();
-      setRequests(data.requests || []);
+      const [incomingRes, outgoingRes] = await Promise.all([
+        fetch(`/api/requests?username=${encodeURIComponent(username)}`),
+        fetch(`/api/requests?username=${encodeURIComponent(username)}&direction=outgoing`),
+      ]);
+      const incoming = await incomingRes.json();
+      const outgoing = await outgoingRes.json();
+      setRequests(incoming.requests || []);
+      setMyRequests(outgoing.requests || []);
     } catch (error) {
       console.error('Error fetching requests:', error);
     }
@@ -104,6 +111,21 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
       }
     } catch (error) {
       console.error('Error updating request:', error);
+    }
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    try {
+      const response = await fetch(`/api/requests/${requestId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+      if (response.ok) {
+        await fetchRequests();
+      }
+    } catch (error) {
+      console.error('Error cancelling request:', error);
     }
   };
 
@@ -196,6 +218,10 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
 
   const handleReturnBorrowed = (bookId: string) => {
     const book = books.borrowed.find((b) => b.id === bookId);
+    // A book lent to me through Lendy is owned by someone else — returning it
+    // hands it back to the owner (PATCH). A book I added manually as "borrowing"
+    // is my own row and is simply removed (DELETE).
+    const isLendyBorrowed = !!book && book.owner_username !== username;
     setConfirmModal({
       isOpen: true,
       title: 'Return Book',
@@ -206,14 +232,20 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
       onConfirm: async () => {
         closeConfirmModal();
         try {
-          const response = await fetch(`/api/books/${bookId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username }),
-          });
+          const response = isLendyBorrowed
+            ? await fetch(`/api/books/${bookId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'return' }),
+              })
+            : await fetch(`/api/books/${bookId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username }),
+              });
 
           if (response.ok) {
-            fetchBooks();
+            await Promise.all([fetchBooks(), fetchRequests()]);
           }
         } catch (error) {
           console.error('Error returning borrowed book:', error);
@@ -287,12 +319,6 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
                 className="pixel-btn text-sm"
               >
                 👥 Readers
-              </button>
-              <button
-                onClick={onLogout}
-                className="pixel-btn text-sm"
-              >
-                🚪 Switch
               </button>
             </div>
           </div>
@@ -380,6 +406,69 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
               </section>
             )}
 
+            {/* My Requests Section (outgoing — books I've asked to borrow) */}
+            {myRequests.length > 0 && (
+              <section className="pixel-card p-4 sm:p-6 bg-[#7c5cff]/5">
+                <div className="flex items-center gap-4 mb-6">
+                  <span className="text-2xl">📮</span>
+                  <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
+                    My Requests
+                  </h2>
+                  <div className="flex-1 pixel-divider" />
+                  <span className="pixel-card px-3 py-1 text-sm bg-[#7c5cff]/20">
+                    {myRequests.length}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {myRequests.map((req) => {
+                    const declined = req.status === 'declined';
+                    return (
+                      <div
+                        key={req.id}
+                        className="flex items-center gap-3 sm:gap-4 border-2 border-[#2d2d2d] bg-white p-3"
+                      >
+                        <div className="w-12 h-[72px] flex-shrink-0 bg-[#eee] border-2 border-[#2d2d2d] overflow-hidden">
+                          {req.cover_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={req.cover_url} alt={req.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xl">📖</div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm leading-tight line-clamp-2" style={{ fontFamily: 'VT323, monospace' }}>
+                            {req.title}
+                          </p>
+                          <p className="text-xs text-[#888] mt-1">
+                            Requested from{' '}
+                            <span className="text-[#7c5cff] font-bold">{req.owner_username}</span>
+                          </p>
+                          <span
+                            className={`inline-block mt-1 px-2 py-0.5 text-[10px] border-2 border-[#2d2d2d] ${
+                              declined ? 'bg-[#ef4444]/15 text-[#b91c1c]' : 'bg-[#ffd700]/25 text-[#8a6d00]'
+                            }`}
+                            style={{ fontFamily: 'Silkscreen, cursive' }}
+                          >
+                            {declined ? '✕ Declined' : '⏳ Pending'}
+                          </span>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <button
+                            onClick={() => handleCancelRequest(req.id)}
+                            className="min-h-[36px] px-3 py-1 text-xs text-white bg-[#888] border-2 border-[#2d2d2d] active:bg-[#999] sm:hover:bg-[#999] transition-colors"
+                            style={{ fontFamily: 'Silkscreen, cursive' }}
+                            title={declined ? 'Dismiss' : 'Cancel request'}
+                          >
+                            {declined ? 'Dismiss' : 'Cancel'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {/* My Books Section */}
             {books.owned.length > 0 && (
               <section className="pixel-card p-4 sm:p-6">
@@ -401,6 +490,7 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
                       type="owned"
                       onLend={handleLendClick}
                       onDelete={handleDelete}
+                      onOpenDetail={setDetailBook}
                     />
                   ))}
                 </div>
@@ -427,6 +517,7 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
                       book={book}
                       type="lending"
                       onReturn={handleReturn}
+                      onOpenDetail={setDetailBook}
                     />
                   ))}
                 </div>
@@ -453,6 +544,7 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
                       book={book}
                       type="borrowed"
                       onReturnBorrowed={handleReturnBorrowed}
+                      onOpenDetail={setDetailBook}
                     />
                   ))}
                 </div>
@@ -523,6 +615,15 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
           setViewingReader(null);
           setIsReadersOpen(true);
         }}
+        onOpenBook={(book) => setDetailBook(book)}
+      />
+
+      {/* Book detail: synopsis + comments + likes */}
+      <BookDetailModal
+        isOpen={detailBook !== null}
+        book={detailBook}
+        currentUsername={username}
+        onClose={() => setDetailBook(null)}
       />
 
       {/* Profile & notification email settings */}

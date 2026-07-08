@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateRequestStatus, initializeDatabase } from '@/lib/db';
+import { updateRequestStatus, deleteRequest, initializeDatabase } from '@/lib/db';
 import { sendEmail, requestStatusEmail, getAppUrl } from '@/lib/email';
 
 export async function PATCH(
@@ -45,5 +45,33 @@ export async function PATCH(
   } catch (error) {
     console.error('Error updating request:', error);
     return NextResponse.json({ error: 'Failed to update request' }, { status: 500 });
+  }
+}
+
+// Requester cancels / dismisses their own request.
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await initializeDatabase();
+
+    const { id } = await params;
+    const { username } = await request.json();
+    if (!username) {
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+    }
+
+    const deleted = await deleteRequest(id, username);
+    if (!deleted) {
+      return NextResponse.json(
+        { error: 'Request not found or not yours' },
+        { status: 404 }
+      );
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting request:', error);
+    return NextResponse.json({ error: 'Failed to delete request' }, { status: 500 });
   }
 }

@@ -3,6 +3,8 @@ import {
   getOrCreateUser,
   getUserProfile,
   updateUserProfile,
+  deleteUser,
+  userExists,
   initializeDatabase,
 } from '@/lib/db';
 
@@ -10,9 +12,16 @@ export async function GET(request: NextRequest) {
   try {
     await initializeDatabase();
 
-    const username = request.nextUrl.searchParams.get('username');
+    const searchParams = request.nextUrl.searchParams;
+    const username = searchParams.get('username');
     if (!username) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+    }
+
+    // Non-creating existence check (used by the sign-in form).
+    if (searchParams.get('exists') !== null) {
+      const exists = await userExists(username);
+      return NextResponse.json({ exists });
     }
 
     // Ensure the user row exists, then return the profile
@@ -50,8 +59,14 @@ export async function POST(request: NextRequest) {
         typeof contactMessage === 'string' && contactMessage.trim().length > 0
           ? contactMessage.trim()
           : null;
-      const user = await updateUserProfile(username, normalizedEmail, normalizedMessage);
-      return NextResponse.json({ user });
+      const result = await updateUserProfile(username, normalizedEmail, normalizedMessage);
+      if ('error' in result) {
+        return NextResponse.json(
+          { error: 'That email is already used by another reader.' },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ user: result.user });
     }
 
     const user = await getOrCreateUser(username);
@@ -59,5 +74,22 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating/getting user:', error);
     return NextResponse.json({ error: 'Failed to process user' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    await initializeDatabase();
+
+    const { username } = await request.json();
+    if (!username || typeof username !== 'string' || !username.trim()) {
+      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+    }
+
+    await deleteUser(username);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return NextResponse.json({ error: 'Failed to delete profile' }, { status: 500 });
   }
 }

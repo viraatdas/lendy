@@ -10,9 +10,10 @@ interface BookCardProps {
   onReturn?: (bookId: string) => void;
   onReturnBorrowed?: (bookId: string) => void;
   onDelete?: (bookId: string) => void;
+  onOpenDetail?: (book: Book) => void;
 }
 
-export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowed, onDelete }: BookCardProps) {
+export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowed, onDelete, onOpenDetail }: BookCardProps) {
   const [showActions, setShowActions] = useState(false);
 
   const handleMouseEnter = useCallback(() => setShowActions(true), []);
@@ -147,9 +148,19 @@ export default function BookCard({ book, type, onLend, onReturn, onReturnBorrowe
 
       {/* Book Info */}
       <div className="mt-3 space-y-1">
-        <h3 className="text-sm leading-tight line-clamp-2" style={{ fontFamily: 'VT323, monospace' }}>
-          {book.title}
-        </h3>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpenDetail?.(book); }}
+          className="block w-full text-left"
+          title="View details & comments"
+        >
+          <h3
+            className="text-sm leading-tight line-clamp-2 hover:text-[#7c5cff] transition-colors"
+            style={{ fontFamily: 'VT323, monospace' }}
+          >
+            {book.title}
+          </h3>
+        </button>
         <p className="text-xs text-[#888]">
           {book.author}
         </p>

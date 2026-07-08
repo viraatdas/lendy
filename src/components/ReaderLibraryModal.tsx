@@ -20,6 +20,7 @@ interface ReaderLibraryModalProps {
   readerUsername: string | null;
   currentUsername: string;
   onClose: () => void;
+  onOpenBook: (book: Book) => void;
 }
 
 export default function ReaderLibraryModal({
@@ -27,6 +28,7 @@ export default function ReaderLibraryModal({
   readerUsername,
   currentUsername,
   onClose,
+  onOpenBook,
 }: ReaderLibraryModalProps) {
   const [data, setData] = useState<LibraryData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -141,6 +143,30 @@ export default function ReaderLibraryModal({
     [currentUsername]
   );
 
+  const handleRetract = useCallback(
+    async (book: PublicBook) => {
+      setRequestingId(book.id);
+      try {
+        await fetch('/api/requests', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookId: book.id, requesterUsername: currentUsername }),
+        });
+        setRequestedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(book.id);
+          return next;
+        });
+        setRequestSuccess(null);
+      } catch {
+        /* ignore — leave as requested */
+      } finally {
+        setRequestingId(null);
+      }
+    },
+    [currentUsername]
+  );
+
   const handleSendContact = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -182,8 +208,11 @@ export default function ReaderLibraryModal({
   if (!isOpen || !readerUsername) return null;
 
   const renderCover = (book: Book, dimmed = false) => (
-    <div
-      className={`relative aspect-[2/3] w-full overflow-hidden pixel-card ${
+    <button
+      type="button"
+      onClick={() => onOpenBook(book)}
+      title="View details & comments"
+      className={`relative block w-full aspect-[2/3] overflow-hidden pixel-card cursor-pointer ${
         dimmed ? 'opacity-70' : ''
       }`}
     >
@@ -219,7 +248,7 @@ export default function ReaderLibraryModal({
           </div>
         </div>
       )}
-    </div>
+    </button>
   );
 
   return (
@@ -396,9 +425,9 @@ export default function ReaderLibraryModal({
                   {data.owned.map((book) => {
                     const isRequested = requestedIds.has(book.id);
                     return (
-                      <div key={book.id} className="space-y-2">
+                      <div key={book.id} className="flex flex-col h-full">
                         {renderCover(book)}
-                        <div className="space-y-1">
+                        <div className="mt-2 space-y-1 flex-1">
                           <h4
                             className="text-sm leading-tight line-clamp-2"
                             style={{ fontFamily: 'VT323, monospace' }}
@@ -407,24 +436,29 @@ export default function ReaderLibraryModal({
                           </h4>
                           <p className="text-xs text-[#888] line-clamp-1">{book.author}</p>
                         </div>
-                        {isRequested ? (
-                          <button
-                            type="button"
-                            disabled
-                            className="pixel-btn w-full text-xs bg-[#4ade80]/40 disabled:opacity-80"
-                          >
-                            ✓ Requested
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleRequest(book)}
-                            disabled={requestingId === book.id}
-                            className="pixel-btn pixel-btn-pink w-full text-xs disabled:opacity-50"
-                          >
-                            {requestingId === book.id ? '...' : '🙋 Request'}
-                          </button>
-                        )}
+                        <div className="mt-2">
+                          {isRequested ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRetract(book)}
+                              disabled={requestingId === book.id}
+                              title="Click to retract your request"
+                              className="pixel-btn w-full text-xs bg-[#4ade80]/40 disabled:opacity-50 group/req"
+                            >
+                              <span className="group-hover/req:hidden">✓ Requested</span>
+                              <span className="hidden group-hover/req:inline">↩ Retract</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleRequest(book)}
+                              disabled={requestingId === book.id}
+                              className="pixel-btn pixel-btn-pink w-full text-xs disabled:opacity-50"
+                            >
+                              {requestingId === book.id ? '...' : '🙋 Request'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

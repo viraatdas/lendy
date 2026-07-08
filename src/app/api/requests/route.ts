@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRequest, getIncomingRequests, initializeDatabase } from '@/lib/db';
+import {
+  createRequest,
+  getIncomingRequests,
+  getOutgoingRequests,
+  cancelRequestByBook,
+  initializeDatabase,
+} from '@/lib/db';
 import { sendEmail, bookRequestEmail, getAppUrl } from '@/lib/email';
 
 export async function GET(request: NextRequest) {
@@ -7,11 +13,15 @@ export async function GET(request: NextRequest) {
     await initializeDatabase();
 
     const username = request.nextUrl.searchParams.get('username');
+    const direction = request.nextUrl.searchParams.get('direction');
     if (!username) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    const requests = await getIncomingRequests(username);
+    const requests =
+      direction === 'outgoing'
+        ? await getOutgoingRequests(username)
+        : await getIncomingRequests(username);
     return NextResponse.json({ requests });
   } catch (error) {
     console.error('Error fetching requests:', error);
@@ -53,5 +63,26 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating request:', error);
     return NextResponse.json({ error: 'Failed to create request' }, { status: 500 });
+  }
+}
+
+// Retract a pending request by book id (from the library view).
+export async function DELETE(request: NextRequest) {
+  try {
+    await initializeDatabase();
+
+    const { bookId, requesterUsername } = await request.json();
+    if (!bookId || !requesterUsername) {
+      return NextResponse.json(
+        { error: 'bookId and requesterUsername are required' },
+        { status: 400 }
+      );
+    }
+
+    await cancelRequestByBook(bookId, requesterUsername);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error retracting request:', error);
+    return NextResponse.json({ error: 'Failed to retract request' }, { status: 500 });
   }
 }

@@ -1,10 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import posthog from 'posthog-js';
 import UsernameForm from '@/components/UsernameForm';
 import Bookshelf from '@/components/Bookshelf';
 
 const STORAGE_KEY = 'lendy_username';
+
+// Associate analytics events with the Lendy username (no-op if PostHog is disabled).
+function identifyUser(username: string) {
+  if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+    posthog.identify(username);
+  }
+}
 
 export default function Home() {
   const [username, setUsername] = useState<string | null>(null);
@@ -16,6 +24,7 @@ export default function Home() {
     const savedUsername = localStorage.getItem(STORAGE_KEY);
     if (savedUsername) {
       setUsername(savedUsername);
+      identifyUser(savedUsername);
     }
     setIsLoading(false);
   }, []);
@@ -35,17 +44,13 @@ export default function Home() {
         const normalizedUsername = data.user.username;
         localStorage.setItem(STORAGE_KEY, normalizedUsername);
         setUsername(normalizedUsername);
+        identifyUser(normalizedUsername);
       }
     } catch (error) {
       console.error('Login error:', error);
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setUsername(null);
   };
 
   // Show loading state while checking for saved username
@@ -68,5 +73,5 @@ export default function Home() {
   }
 
   // Show bookshelf if logged in
-  return <Bookshelf username={username} onLogout={handleLogout} />;
+  return <Bookshelf username={username} />;
 }
