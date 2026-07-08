@@ -289,7 +289,7 @@ export default function Bookshelf({ username }: BookshelfProps) {
   const totalBooks = books.owned.length + books.lending.length + books.borrowed.length;
 
   return (
-    <div className="min-h-screen pixel-pattern">
+    <div className="min-h-screen pixel-pattern overflow-x-hidden">
       {/* Header */}
       <header className="border-b-4 border-[#2d2d2d] bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
@@ -304,10 +304,11 @@ export default function Bookshelf({ username }: BookshelfProps) {
               </h1>
               <button
                 onClick={() => setIsProfileOpen(true)}
-                className="pixel-card px-3 py-1 text-sm transition-transform hover:-translate-y-0.5"
+                className="pixel-card px-3 py-1 text-sm transition-transform hover:-translate-y-0.5 flex items-center gap-1 max-w-[48vw] sm:max-w-none"
                 title="Edit your profile & notification email"
               >
-                👤 {username} <span className="text-[#888]">⚙️</span>
+                <span className="truncate">👤 {username}</span>
+                <span className="text-[#888]">⚙️</span>
               </button>
             </div>
 
@@ -397,14 +398,14 @@ export default function Bookshelf({ username }: BookshelfProps) {
                       <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
                         <button
                           onClick={() => handleRequestAction(req.id, 'accept')}
-                          className="min-h-[36px] px-3 py-1 text-xs text-white bg-[#4ade80] border-2 border-[#2d2d2d] active:bg-[#6ee7a0] sm:hover:bg-[#6ee7a0] transition-colors"
+                          className="min-h-[44px] px-3 py-2 text-xs text-white bg-[#4ade80] border-2 border-[#2d2d2d] active:bg-[#6ee7a0] sm:hover:bg-[#6ee7a0] transition-colors"
                           style={{ fontFamily: 'Silkscreen, cursive' }}
                         >
                           ✓ Lend
                         </button>
                         <button
                           onClick={() => handleRequestAction(req.id, 'decline')}
-                          className="min-h-[36px] px-3 py-1 text-xs text-white bg-[#ef4444] border-2 border-[#2d2d2d] active:bg-[#f87171] sm:hover:bg-[#f87171] transition-colors"
+                          className="min-h-[44px] px-3 py-2 text-xs text-white bg-[#ef4444] border-2 border-[#2d2d2d] active:bg-[#f87171] sm:hover:bg-[#f87171] transition-colors"
                           style={{ fontFamily: 'Silkscreen, cursive' }}
                         >
                           ✕
@@ -465,7 +466,7 @@ export default function Bookshelf({ username }: BookshelfProps) {
                         <div className="flex-shrink-0">
                           <button
                             onClick={() => handleCancelRequest(req.id)}
-                            className="min-h-[36px] px-3 py-1 text-xs text-white bg-[#888] border-2 border-[#2d2d2d] active:bg-[#999] sm:hover:bg-[#999] transition-colors"
+                            className="min-h-[44px] px-3 py-2 text-xs text-white bg-[#888] border-2 border-[#2d2d2d] active:bg-[#999] sm:hover:bg-[#999] transition-colors"
                             style={{ fontFamily: 'Silkscreen, cursive' }}
                             title={declined ? 'Dismiss' : 'Cancel request'}
                           >
@@ -483,7 +484,6 @@ export default function Bookshelf({ username }: BookshelfProps) {
             {books.owned.length > 0 && (
               <section className="pixel-card p-4 sm:p-6">
                 <div className="flex items-center gap-4 mb-6">
-                  <span className="text-2xl">📚</span>
                   <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
                     My Books
                   </h2>
@@ -511,7 +511,6 @@ export default function Bookshelf({ username }: BookshelfProps) {
             {books.lending.length > 0 && (
               <section className="pixel-card p-4 sm:p-6">
                 <div className="flex items-center gap-4 mb-6">
-                  <span className="text-2xl">🤝</span>
                   <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
                     Lending Out
                   </h2>

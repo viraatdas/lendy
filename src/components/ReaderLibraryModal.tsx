@@ -252,7 +252,7 @@ export default function ReaderLibraryModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto pixel-pattern bg-[#fdf6e3]">
+    <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden pixel-pattern bg-[#fdf6e3]">
       {/* Header */}
       <header className="border-b-4 border-[#2d2d2d] bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
