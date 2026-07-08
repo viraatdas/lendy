@@ -386,6 +386,28 @@ export async function getPublicLibrary(username: string, viewer?: string) {
   };
 }
 
+// ---- Find a book across everyone's shelves ----
+
+export async function findBooks(query: string, viewer: string) {
+  const q = `%${query.trim()}%`;
+  const v = viewer.toLowerCase().trim();
+  const result = await sql`
+    SELECT b.id, b.title, b.author, b.cover_url, b.open_library_key,
+           b.owner_username, b.lent_to_name,
+           EXISTS(
+             SELECT 1 FROM requests r
+             WHERE r.book_id = b.id AND r.requester_username = ${v} AND r.status = 'pending'
+           ) AS requested
+    FROM books b
+    WHERE b.owner_username != ${v}
+      AND (b.borrowed_from_name IS NULL OR b.borrowed_from_name = '')
+      AND (b.title ILIKE ${q} OR b.author ILIKE ${q})
+    ORDER BY (b.lent_to_name IS NULL) DESC, b.title ASC, b.owner_username ASC
+    LIMIT 60
+  `;
+  return result.rows;
+}
+
 // ---- Requests (tasks 4 & 5) ----
 
 export async function createRequest(bookId: string, requesterUsername: string) {

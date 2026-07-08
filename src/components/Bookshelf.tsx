@@ -11,6 +11,9 @@ import ReadersModal from './ReadersModal';
 import ReaderLibraryModal from './ReaderLibraryModal';
 import ProfileSettingsModal from './ProfileSettingsModal';
 import BookDetailModal from './BookDetailModal';
+import FindBookModal from './FindBookModal';
+
+type DetailBook = Pick<Book, 'id' | 'title' | 'author' | 'cover_url' | 'open_library_key'>;
 
 interface BookshelfProps {
   username: string;
@@ -41,7 +44,8 @@ export default function Bookshelf({ username }: BookshelfProps) {
   const [isReadersOpen, setIsReadersOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [viewingReader, setViewingReader] = useState<string | null>(null);
-  const [detailBook, setDetailBook] = useState<Book | null>(null);
+  const [detailBook, setDetailBook] = useState<DetailBook | null>(null);
+  const [isFindOpen, setIsFindOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<{
     title: string;
     author: string;
@@ -313,6 +317,12 @@ export default function Bookshelf({ username }: BookshelfProps) {
                 className="pixel-btn pixel-btn-pink text-sm"
               >
                 📖 Add Book
+              </button>
+              <button
+                onClick={() => setIsFindOpen(true)}
+                className="pixel-btn text-sm"
+              >
+                🔎 Find
               </button>
               <button
                 onClick={() => setIsReadersOpen(true)}
@@ -615,6 +625,14 @@ export default function Bookshelf({ username }: BookshelfProps) {
           setViewingReader(null);
           setIsReadersOpen(true);
         }}
+        onOpenBook={(book) => setDetailBook(book)}
+      />
+
+      {/* Find a book across all readers */}
+      <FindBookModal
+        isOpen={isFindOpen}
+        currentUsername={username}
+        onClose={() => setIsFindOpen(false)}
         onOpenBook={(book) => setDetailBook(book)}
       />
 
