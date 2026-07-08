@@ -24,6 +24,7 @@ interface FindBookModalProps {
     cover_url: string | null;
     open_library_key: string;
   }) => void;
+  onOpenReader: (username: string) => void;
 }
 
 export default function FindBookModal({
@@ -31,6 +32,7 @@ export default function FindBookModal({
   currentUsername,
   onClose,
   onOpenBook,
+  onOpenReader,
 }: FindBookModalProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoundBook[]>([]);
@@ -153,7 +155,7 @@ export default function FindBookModal({
               ✕
             </button>
           </div>
-          <p className="text-xs text-[#888] mt-2" style={{ fontFamily: 'VT323, monospace' }}>
+          <p className="text-base text-[#555] mt-2" style={{ fontFamily: 'VT323, monospace' }}>
             Search everyone&apos;s shelves and request what you find.
           </p>
         </div>
@@ -203,18 +205,32 @@ export default function FindBookModal({
                         </h3>
                       </button>
                       <p className="text-sm text-[#888] line-clamp-1">{book.author}</p>
-                      <p className="text-xs mt-1" style={{ fontFamily: 'VT323, monospace' }}>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => onOpenReader(book.owner_username)}
+                          title={`Open ${book.owner_username}'s library`}
+                          className="text-base text-[#7c5cff] hover:text-[#ff6b9d] underline underline-offset-2 decoration-2 transition-colors"
+                          style={{ fontFamily: 'Silkscreen, cursive' }}
+                        >
+                          👤 {book.owner_username}
+                        </button>
                         {available ? (
-                          <span className="text-[#4ade80]">
-                            📗 Available from{' '}
-                            <span className="text-[#7c5cff] font-bold">{book.owner_username}</span>
+                          <span
+                            className="text-[10px] px-2 py-0.5 border-2 border-[#2d2d2d] bg-[#4ade80]/25 text-[#2d7d46]"
+                            style={{ fontFamily: 'Silkscreen, cursive' }}
+                          >
+                            Available
                           </span>
                         ) : (
-                          <span className="text-[#888]">
-                            🤝 {book.owner_username}&apos;s copy is lent out
+                          <span
+                            className="text-[10px] px-2 py-0.5 border-2 border-[#2d2d2d] bg-[#888]/20 text-[#666]"
+                            style={{ fontFamily: 'Silkscreen, cursive' }}
+                          >
+                            Lent out
                           </span>
                         )}
-                      </p>
+                      </div>
                     </div>
 
                     <div className="flex-shrink-0 self-center">

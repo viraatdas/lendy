@@ -634,6 +634,10 @@ export default function Bookshelf({ username }: BookshelfProps) {
         currentUsername={username}
         onClose={() => setIsFindOpen(false)}
         onOpenBook={(book) => setDetailBook(book)}
+        onOpenReader={(reader) => {
+          setIsFindOpen(false);
+          setViewingReader(reader);
+        }}
       />
 
       {/* Book detail: synopsis + comments + likes */}
