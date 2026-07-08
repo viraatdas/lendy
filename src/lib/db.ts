@@ -33,6 +33,7 @@ export async function initializeDatabase() {
       await sql`ALTER TABLE books ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS contact_message TEXT;`;
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;`;
     } catch {
       // Columns might already exist, ignore error
     }
@@ -91,7 +92,16 @@ export async function getOrCreateUser(username: string) {
   `;
 
   if (existingUser.rows.length > 0) {
-    return existingUser.rows[0];
+    const user = existingUser.rows[0];
+    // Logging back in with a soft-deleted account restores it (nothing was
+    // ever deleted from the database — see deleteUser).
+    if (user.deleted_at) {
+      const restored = await sql`
+        UPDATE users SET deleted_at = NULL WHERE username = ${normalizedUsername} RETURNING *
+      `;
+      return restored.rows[0];
+    }
+    return user;
   }
 
   const newUser = await sql`
@@ -149,25 +159,17 @@ export async function updateUserProfile(
   return { user: result.rows[0] };
 }
 
-// Permanently delete a user and everything tied to them.
+// Soft-delete a user: mark the account deleted but keep ALL data in the
+// database so it can be restored later (by an admin, or automatically when the
+// user logs back in with the same name — see getOrCreateUser). Nothing is
+// physically removed; deleted accounts are just hidden from the app's listings.
 export async function deleteUser(username: string) {
   const u = username.toLowerCase().trim();
-
-  // Hand back any books this user had borrowed from others.
-  await sql`
-    UPDATE books SET lent_to_name = NULL, borrower_username = NULL, updated_at = CURRENT_TIMESTAMP
-    WHERE borrower_username = ${u} AND owner_username != ${u}
+  const result = await sql`
+    UPDATE users SET deleted_at = CURRENT_TIMESTAMP
+    WHERE username = ${u} AND deleted_at IS NULL
+    RETURNING username
   `;
-  // Likes this user gave on any comment.
-  await sql`DELETE FROM comment_likes WHERE username = ${u}`;
-  // Comments this user wrote (cascades likes on them).
-  await sql`DELETE FROM comments WHERE username = ${u}`;
-  // Requests to or from this user.
-  await sql`DELETE FROM requests WHERE requester_username = ${u} OR owner_username = ${u}`;
-  // Books this user owns (cascades comments/requests/likes on those books).
-  await sql`DELETE FROM books WHERE owner_username = ${u}`;
-  // Finally the user row.
-  const result = await sql`DELETE FROM users WHERE username = ${u} RETURNING username`;
   return result.rows[0] || null;
 }
 
@@ -282,7 +284,7 @@ export async function deleteBook(bookId: string, username: string) {
 export async function getReaders(excludeUsername?: string) {
   const exclude = excludeUsername?.toLowerCase().trim() || '';
 
-  const users = await sql`SELECT username FROM users`;
+  const users = await sql`SELECT username FROM users WHERE deleted_at IS NULL`;
 
   const counts = await sql`
     SELECT owner_username, COUNT(*)::int AS book_count
@@ -363,8 +365,19 @@ export async function getPublicLibrary(username: string, viewer?: string) {
   const normalizedViewer = viewer?.toLowerCase().trim() || '';
 
   const profile = await sql`
-    SELECT username, email, contact_message FROM users WHERE username = ${normalizedUsername}
+    SELECT username, email, contact_message, deleted_at FROM users WHERE username = ${normalizedUsername}
   `;
+
+  // A soft-deleted account's library is hidden.
+  if (profile.rows[0]?.deleted_at) {
+    return {
+      username: normalizedUsername,
+      contact_message: null,
+      hasContact: false,
+      owned: [],
+      lending: [],
+    };
+  }
 
   const owned = await sql`
     SELECT b.*,
@@ -412,6 +425,7 @@ export async function findBooks(query: string, viewer: string) {
              WHERE r.book_id = b.id AND r.requester_username = ${v} AND r.status = 'pending'
            ) AS requested
     FROM books b
+    JOIN users u ON u.username = b.owner_username AND u.deleted_at IS NULL
     WHERE b.owner_username != ${v}
       AND (b.borrowed_from_name IS NULL OR b.borrowed_from_name = '')
       AND (b.title ILIKE ${q} OR b.author ILIKE ${q})

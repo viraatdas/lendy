@@ -234,8 +234,9 @@ export default function ProfileSettingsModal({
               ) : (
                 <div className="space-y-3 border-2 border-[#ef4444] bg-[#ef4444]/5 p-3">
                   <p className="text-sm text-[#b91c1c]" style={{ fontFamily: 'VT323, monospace' }}>
-                    This permanently deletes your account, all your books,
-                    requests, and comments. This <strong>cannot be undone</strong>.
+                    This removes your profile and library from Lendy. Your data
+                    is kept safe and can be <strong>restored</strong> — signing
+                    in again with the same name brings it all back.
                   </p>
                   <div className="flex gap-3">
                     <button
