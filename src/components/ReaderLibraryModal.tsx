@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Book } from '@/lib/types';
 
 interface PublicBook extends Book {
@@ -47,6 +47,8 @@ export default function ReaderLibraryModal({
   const [contactSent, setContactSent] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
 
+  const contactRef = useRef<HTMLDivElement | null>(null);
+
   const fetchLibrary = useCallback(async () => {
     if (!readerUsername) return;
     setLoading(true);
@@ -90,6 +92,14 @@ export default function ReaderLibraryModal({
       fetchLibrary();
     }
   }, [isOpen, readerUsername, fetchLibrary]);
+
+  const openContact = useCallback(() => {
+    setShowContact(true);
+    // Let the form render, then scroll it into view
+    requestAnimationFrame(() => {
+      contactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, []);
 
   const handleRequest = useCallback(
     async (book: PublicBook) => {
@@ -174,10 +184,11 @@ export default function ReaderLibraryModal({
   const renderCover = (book: Book, dimmed = false) => (
     <div
       className={`relative aspect-[2/3] w-full overflow-hidden pixel-card ${
-        dimmed ? 'opacity-60' : ''
+        dimmed ? 'opacity-70' : ''
       }`}
     >
       {book.cover_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={book.cover_url}
           alt={book.title}
@@ -212,278 +223,258 @@ export default function ReaderLibraryModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-[#2d2d2d]/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div className="relative w-full max-w-md pixel-card max-h-[85vh] overflow-y-auto">
-        {/* Header */}
-        <div className="p-4 border-b-4 border-[#2d2d2d] bg-[#ff6b9d]/10">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">📚</span>
-            <h2
-              className="text-xl break-words"
-              style={{ fontFamily: 'Silkscreen, cursive' }}
-            >
-              {readerUsername}&apos;s library
-            </h2>
+    <div className="fixed inset-0 z-50 overflow-y-auto pixel-pattern bg-[#fdf6e3]">
+      {/* Header */}
+      <header className="border-b-4 border-[#2d2d2d] bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <button onClick={onClose} className="pixel-btn text-sm whitespace-nowrap">
+              ← Back
+            </button>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-2xl">📚</span>
+              <h1
+                className="text-lg sm:text-2xl truncate"
+                style={{ fontFamily: 'Silkscreen, cursive' }}
+              >
+                {readerUsername}
+              </h1>
+            </div>
+            {data?.hasContact && !contactSent ? (
+              <button
+                onClick={openContact}
+                className="pixel-btn pixel-btn-pink text-sm whitespace-nowrap"
+              >
+                ✉️ Message
+              </button>
+            ) : (
+              <div className="w-[64px]" aria-hidden />
+            )}
           </div>
         </div>
+      </header>
 
-        {/* Body */}
-        <div className="p-3 sm:p-4 space-y-4">
-          {loading && (
-            <div className="py-10 text-center">
-              <div className="text-3xl mb-2 float-animation">📚</div>
-              <p className="text-[#888]" style={{ fontFamily: 'VT323, monospace' }}>
-                Loading library...
-              </p>
+      {/* Main */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {loading && (
+          <div className="text-center py-24">
+            <div className="text-6xl mb-4 float-animation">📚</div>
+            <p className="text-xl text-[#666]">Loading library...</p>
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="text-center py-24">
+            <div className="pixel-card inline-block p-8">
+              <div className="text-5xl mb-4">😢</div>
+              <p className="text-xl text-[#666]">{error}</p>
             </div>
-          )}
+          </div>
+        )}
 
-          {!loading && error && (
-            <div className="py-10 text-center">
-              <div className="text-3xl mb-2">😢</div>
-              <p className="text-[#888]" style={{ fontFamily: 'VT323, monospace' }}>
-                {error}
-              </p>
-            </div>
-          )}
+        {!loading && !error && data && (
+          <div className="space-y-8">
+            {/* Contact message quote */}
+            {data.contact_message && (
+              <div className="pixel-card p-4 bg-[#ffd700]/15">
+                <p
+                  className="text-lg italic text-[#555]"
+                  style={{ fontFamily: 'VT323, monospace' }}
+                >
+                  &ldquo;{data.contact_message}&rdquo;
+                </p>
+              </div>
+            )}
 
-          {!loading && !error && data && (
-            <>
-              {/* Contact message quote */}
-              {data.contact_message && (
-                <div className="pixel-card p-3 bg-[#ffd700]/15">
-                  <p
-                    className="text-base italic text-[#555]"
-                    style={{ fontFamily: 'VT323, monospace' }}
-                  >
-                    &ldquo;{data.contact_message}&rdquo;
-                  </p>
-                </div>
-              )}
-
-              {/* Message button / inline form */}
-              {data.hasContact && !contactSent && (
-                <div>
-                  {!showContact ? (
+            {/* Inline contact form */}
+            {data.hasContact && showContact && !contactSent && (
+              <div ref={contactRef} className="pixel-card p-4 sm:p-6 max-w-md">
+                <form onSubmit={handleSendContact} className="space-y-3">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">✉️</span>
+                    <h2 className="text-lg" style={{ fontFamily: 'Silkscreen, cursive' }}>
+                      Message {readerUsername}
+                    </h2>
+                  </div>
+                  <input
+                    type="text"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Your name *"
+                    className="pixel-input w-full"
+                  />
+                  <input
+                    type="email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="Your email (optional)"
+                    className="pixel-input w-full"
+                  />
+                  <textarea
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    placeholder="Your message *"
+                    rows={3}
+                    className="pixel-input w-full"
+                  />
+                  {contactError && (
+                    <p className="text-sm text-[#ef4444]">{contactError}</p>
+                  )}
+                  <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => setShowContact(true)}
-                      className="pixel-btn w-full text-sm"
+                      onClick={() => setShowContact(false)}
+                      className="pixel-btn flex-1 text-sm"
                     >
-                      ✉️ Message {readerUsername}
+                      Cancel
                     </button>
-                  ) : (
-                    <form
-                      onSubmit={handleSendContact}
-                      className="pixel-card p-3 space-y-3"
+                    <button
+                      type="submit"
+                      disabled={sending || !contactName.trim() || !contactMessage.trim()}
+                      className="pixel-btn pixel-btn-pink flex-1 text-sm disabled:opacity-50"
                     >
-                      <p
-                        className="text-sm"
-                        style={{ fontFamily: 'Silkscreen, cursive' }}
-                      >
-                        Message {readerUsername}
-                      </p>
-                      <input
-                        type="text"
-                        value={contactName}
-                        onChange={(e) => setContactName(e.target.value)}
-                        placeholder="Your name *"
-                        className="pixel-input w-full"
-                      />
-                      <input
-                        type="email"
-                        value={contactEmail}
-                        onChange={(e) => setContactEmail(e.target.value)}
-                        placeholder="Your email (optional)"
-                        className="pixel-input w-full"
-                      />
-                      <textarea
-                        value={contactMessage}
-                        onChange={(e) => setContactMessage(e.target.value)}
-                        placeholder="Your message *"
-                        rows={3}
-                        className="pixel-input w-full"
-                      />
-                      {contactError && (
-                        <p className="text-xs text-[#ef4444]">{contactError}</p>
-                      )}
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowContact(false)}
-                          className="pixel-btn flex-1 text-sm"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={
-                            sending ||
-                            !contactName.trim() ||
-                            !contactMessage.trim()
-                          }
-                          className="pixel-btn pixel-btn-pink flex-1 text-sm disabled:opacity-50"
-                        >
-                          {sending ? 'Sending...' : '✉️ Send'}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
-              )}
+                      {sending ? 'Sending...' : '✉️ Send'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
-              {data.hasContact && contactSent && (
-                <div className="pixel-card p-3 bg-[#4ade80]/20 text-center">
-                  <p
-                    className="text-base"
-                    style={{ fontFamily: 'VT323, monospace' }}
-                  >
-                    ✅ Sent! They&apos;ll get an email.
+            {data.hasContact && contactSent && (
+              <div className="pixel-card p-4 bg-[#4ade80]/20 text-center max-w-md">
+                <p className="text-lg" style={{ fontFamily: 'VT323, monospace' }}>
+                  ✅ Sent! They&apos;ll get an email.
+                </p>
+              </div>
+            )}
+
+            {/* Request feedback */}
+            {requestSuccess && (
+              <div className="pixel-card p-3 bg-[#4ade80]/20 text-center">
+                <p className="text-base" style={{ fontFamily: 'VT323, monospace' }}>
+                  {requestSuccess}
+                </p>
+              </div>
+            )}
+            {requestError && (
+              <div className="pixel-card p-3 bg-[#ef4444]/15 text-center">
+                <p
+                  className="text-base text-[#ef4444]"
+                  style={{ fontFamily: 'VT323, monospace' }}
+                >
+                  {requestError}
+                </p>
+              </div>
+            )}
+
+            {/* Empty library */}
+            {data.owned.length === 0 && data.lending.length === 0 && (
+              <div className="text-center py-16">
+                <div className="pixel-card inline-block p-8">
+                  <div className="text-5xl mb-4">🗄️</div>
+                  <p className="text-xl text-[#666]">
+                    {readerUsername} has no books yet
                   </p>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Request feedback */}
-              {requestSuccess && (
-                <div className="pixel-card p-2 bg-[#4ade80]/20 text-center">
-                  <p
-                    className="text-sm"
-                    style={{ fontFamily: 'VT323, monospace' }}
-                  >
-                    {requestSuccess}
-                  </p>
-                </div>
-              )}
-              {requestError && (
-                <div className="pixel-card p-2 bg-[#ef4444]/15 text-center">
-                  <p
-                    className="text-sm text-[#ef4444]"
-                    style={{ fontFamily: 'VT323, monospace' }}
-                  >
-                    {requestError}
-                  </p>
-                </div>
-              )}
-
-              {/* Available to borrow */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h3
-                    className="text-sm"
-                    style={{ fontFamily: 'Silkscreen, cursive' }}
-                  >
+            {/* Available to borrow */}
+            {data.owned.length > 0 && (
+              <section className="pixel-card p-4 sm:p-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <span className="text-2xl">📗</span>
+                  <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
                     Available to borrow
-                  </h3>
+                  </h2>
+                  <div className="flex-1 pixel-divider" />
                   <span className="pixel-card px-3 py-1 text-sm bg-[#4ade80]/20">
                     {data.owned.length}
                   </span>
                 </div>
-
-                {data.owned.length === 0 ? (
-                  <p
-                    className="text-sm text-[#888] py-4 text-center"
-                    style={{ fontFamily: 'VT323, monospace' }}
-                  >
-                    No books available right now
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {data.owned.map((book) => {
-                      const isRequested = requestedIds.has(book.id);
-                      return (
-                        <div key={book.id} className="space-y-2">
-                          {renderCover(book)}
-                          <div className="space-y-1">
-                            <h4
-                              className="text-sm leading-tight line-clamp-2"
-                              style={{ fontFamily: 'VT323, monospace' }}
-                            >
-                              {book.title}
-                            </h4>
-                            <p className="text-xs text-[#888] line-clamp-1">
-                              {book.author}
-                            </p>
-                          </div>
-                          {isRequested ? (
-                            <button
-                              type="button"
-                              disabled
-                              className="pixel-btn w-full text-xs bg-[#4ade80]/30 disabled:opacity-70"
-                            >
-                              ✓ Requested
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleRequest(book)}
-                              disabled={requestingId === book.id}
-                              className="pixel-btn pixel-btn-pink w-full text-xs disabled:opacity-50"
-                            >
-                              {requestingId === book.id
-                                ? '...'
-                                : '🙋 Request'}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Lending out */}
-              {data.lending.length > 0 && (
-                <div className="space-y-3">
-                  <div className="pixel-divider" />
-                  <div className="flex items-center gap-2">
-                    <h3
-                      className="text-sm"
-                      style={{ fontFamily: 'Silkscreen, cursive' }}
-                    >
-                      Lending out
-                    </h3>
-                    <span className="pixel-card px-3 py-1 text-sm bg-[#ff6b9d]/20">
-                      {data.lending.length}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {data.lending.map((book) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {data.owned.map((book) => {
+                    const isRequested = requestedIds.has(book.id);
+                    return (
                       <div key={book.id} className="space-y-2">
-                        {renderCover(book, true)}
+                        {renderCover(book)}
                         <div className="space-y-1">
                           <h4
-                            className="text-sm leading-tight line-clamp-2 text-[#888]"
+                            className="text-sm leading-tight line-clamp-2"
                             style={{ fontFamily: 'VT323, monospace' }}
                           >
                             {book.title}
                           </h4>
-                          <p className="text-xs text-[#aaa] line-clamp-1">
-                            {book.author}
-                          </p>
+                          <p className="text-xs text-[#888] line-clamp-1">{book.author}</p>
                         </div>
+                        {isRequested ? (
+                          <button
+                            type="button"
+                            disabled
+                            className="pixel-btn w-full text-xs bg-[#4ade80]/40 disabled:opacity-80"
+                          >
+                            ✓ Requested
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleRequest(book)}
+                            disabled={requestingId === book.id}
+                            className="pixel-btn pixel-btn-pink w-full text-xs disabled:opacity-50"
+                          >
+                            {requestingId === book.id ? '...' : '🙋 Request'}
+                          </button>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              </section>
+            )}
 
-        {/* Footer */}
-        <div className="p-3 sm:p-4 border-t-2 border-[#eee]">
-          <button type="button" onClick={onClose} className="pixel-btn w-full">
-            Close
-          </button>
-        </div>
-      </div>
+            {/* Lending out (view-only) */}
+            {data.lending.length > 0 && (
+              <section className="pixel-card p-4 sm:p-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <span className="text-2xl">🤝</span>
+                  <h2 className="text-xl" style={{ fontFamily: 'Silkscreen, cursive' }}>
+                    Lending out
+                  </h2>
+                  <div className="flex-1 pixel-divider" />
+                  <span className="pixel-card px-3 py-1 text-sm bg-[#ff6b9d]/20">
+                    {data.lending.length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {data.lending.map((book) => (
+                    <div key={book.id} className="space-y-2">
+                      {renderCover(book, true)}
+                      <div className="space-y-1">
+                        <h4
+                          className="text-sm leading-tight line-clamp-2 text-[#888]"
+                          style={{ fontFamily: 'VT323, monospace' }}
+                        >
+                          {book.title}
+                        </h4>
+                        <p className="text-xs text-[#aaa] line-clamp-1">{book.author}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        {/* Bottom back button for long libraries */}
+        {!loading && (
+          <div className="mt-8 text-center">
+            <button onClick={onClose} className="pixel-btn">
+              ← Back to Readers
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

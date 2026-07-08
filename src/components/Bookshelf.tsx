@@ -514,12 +514,15 @@ export default function Bookshelf({ username, onLogout }: BookshelfProps) {
         onSelectReader={handleSelectReader}
       />
 
-      {/* Viewing another reader's library */}
+      {/* Viewing another reader's library — "Back" returns to the Readers list */}
       <ReaderLibraryModal
         isOpen={viewingReader !== null}
         readerUsername={viewingReader}
         currentUsername={username}
-        onClose={() => setViewingReader(null)}
+        onClose={() => {
+          setViewingReader(null);
+          setIsReadersOpen(true);
+        }}
       />
 
       {/* Profile & notification email settings */}

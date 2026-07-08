@@ -7,7 +7,7 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const title = "Lendy — Your cozy book lending library";
+const title = "Lendy · Your cozy book lending library";
 const description =
   "Keep track of every book you own, and never lose one to a friend again. Lendy is a cozy pixel-art library for tracking, lending, and borrowing your books.";
 
