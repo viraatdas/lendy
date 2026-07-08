@@ -61,6 +61,7 @@ export interface Comment {
   book_id: string;
   username: string;
   body: string;
+  is_spoiler: boolean;
   created_at: string;
   like_count: number;
   liked: boolean;

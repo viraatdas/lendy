@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     await initializeDatabase();
 
-    const { bookId, username, body } = await request.json();
+    const { bookId, username, body, isSpoiler } = await request.json();
     if (!bookId || !username || !body || !String(body).trim()) {
       return NextResponse.json(
         { error: 'bookId, username and body are required' },
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmed = String(body).trim().slice(0, 2000);
-    const comment = await addComment(bookId, username, trimmed);
+    const comment = await addComment(bookId, username, trimmed, Boolean(isSpoiler));
     return NextResponse.json({ comment });
   } catch (error) {
     console.error('Error adding comment:', error);

@@ -84,8 +84,18 @@ export default function BookDetailModal({
   const [sort, setSort] = useState<SortMode>('top');
 
   const [draft, setDraft] = useState('');
+  const [draftSpoiler, setDraftSpoiler] = useState(false);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+
+  const reveal = useCallback((id: string) => {
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   const bookId = book?.id ?? null;
   const volumeId = book?.open_library_key ?? null;
@@ -156,8 +166,10 @@ export default function BookDetailModal({
   useEffect(() => {
     if (isOpen) {
       setDraft('');
+      setDraftSpoiler(false);
       setPostError(null);
       setPosting(false);
+      setRevealed(new Set());
     }
   }, [isOpen, bookId]);
 
@@ -173,7 +185,12 @@ export default function BookDetailModal({
         const res = await fetch('/api/comments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookId, username: currentUsername, body }),
+          body: JSON.stringify({
+            bookId,
+            username: currentUsername,
+            body,
+            isSpoiler: draftSpoiler,
+          }),
         });
         if (!res.ok) {
           let msg = 'Could not post comment.';
@@ -187,6 +204,7 @@ export default function BookDetailModal({
           return;
         }
         setDraft('');
+        setDraftSpoiler(false);
         await fetchComments();
       } catch {
         setPostError('Could not post comment. Try again.');
@@ -194,7 +212,7 @@ export default function BookDetailModal({
         setPosting(false);
       }
     },
-    [draft, bookId, posting, currentUsername, fetchComments]
+    [draft, draftSpoiler, bookId, posting, currentUsername, fetchComments]
   );
 
   // --- Toggle like ---
@@ -445,7 +463,19 @@ export default function BookDetailModal({
             {postError && (
               <p className="text-sm text-[#ef4444]">{postError}</p>
             )}
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setDraftSpoiler((v) => !v)}
+                aria-pressed={draftSpoiler}
+                className={`text-sm px-3 py-2 border-2 border-[#2d2d2d] transition-colors ${
+                  draftSpoiler ? 'bg-[#ffd700] text-[#2d2d2d]' : 'bg-white text-[#888]'
+                }`}
+                style={{ fontFamily: 'Silkscreen, cursive' }}
+                title="Mark this comment as a spoiler"
+              >
+                {draftSpoiler ? '⚠️ Spoiler ✓' : '⚠️ Mark as spoiler'}
+              </button>
               <button
                 type="submit"
                 disabled={posting || !draft.trim()}
@@ -481,7 +511,7 @@ export default function BookDetailModal({
               {comments.map((c) => (
                 <div key={c.id} className="pixel-card p-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span
                         className="text-sm truncate"
                         style={{
@@ -491,6 +521,14 @@ export default function BookDetailModal({
                       >
                         {c.username}
                       </span>
+                      {c.is_spoiler && (
+                        <span
+                          className="text-[10px] px-2 py-0.5 border-2 border-[#2d2d2d] bg-[#ffd700]/40 text-[#8a6d00] whitespace-nowrap"
+                          style={{ fontFamily: 'Silkscreen, cursive' }}
+                        >
+                          ⚠️ Spoiler
+                        </span>
+                      )}
                       <span className="text-xs text-[#aaa] whitespace-nowrap">
                         {timeAgo(c.created_at)}
                       </span>
@@ -516,12 +554,28 @@ export default function BookDetailModal({
                       )}
                     </div>
                   </div>
-                  <p
-                    className="mt-2 text-lg text-[#444] whitespace-pre-wrap break-words"
-                    style={{ fontFamily: 'VT323, monospace' }}
-                  >
-                    {c.body}
-                  </p>
+                  {c.is_spoiler &&
+                  c.username !== currentUsername &&
+                  !revealed.has(c.id) ? (
+                    <button
+                      type="button"
+                      onClick={() => reveal(c.id)}
+                      className="mt-2 w-full text-left px-3 py-3 border-2 border-dashed border-[#2d2d2d] bg-[#2d2d2d]/5 hover:bg-[#ffd700]/15 transition-colors"
+                      style={{ fontFamily: 'VT323, monospace' }}
+                      title="Click to reveal spoiler"
+                    >
+                      <span className="text-base text-[#888]">
+                        ⚠️ Spoiler hidden — tap to reveal
+                      </span>
+                    </button>
+                  ) : (
+                    <p
+                      className="mt-2 text-lg text-[#444] whitespace-pre-wrap break-words"
+                      style={{ fontFamily: 'VT323, monospace' }}
+                    >
+                      {c.body}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

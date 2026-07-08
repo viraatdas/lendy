@@ -59,9 +59,11 @@ export async function initializeDatabase() {
         book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
         username VARCHAR(255) NOT NULL REFERENCES users(username),
         body TEXT NOT NULL,
+        is_spoiler BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    await sql`ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_spoiler BOOLEAN DEFAULT false;`;
 
     await sql`
       CREATE TABLE IF NOT EXISTS comment_likes (
@@ -494,7 +496,7 @@ export async function getComments(bookId: string, viewer: string, sort: 'top' | 
 
   if (sort === 'top') {
     const result = await sql`
-      SELECT c.id, c.book_id, c.username, c.body, c.created_at,
+      SELECT c.id, c.book_id, c.username, c.body, c.is_spoiler, c.created_at,
         COUNT(cl.username)::int AS like_count,
         BOOL_OR(cl.username = ${normalizedViewer}) AS liked
       FROM comments c
@@ -507,7 +509,7 @@ export async function getComments(bookId: string, viewer: string, sort: 'top' | 
   }
 
   const result = await sql`
-    SELECT c.id, c.book_id, c.username, c.body, c.created_at,
+    SELECT c.id, c.book_id, c.username, c.body, c.is_spoiler, c.created_at,
       COUNT(cl.username)::int AS like_count,
       BOOL_OR(cl.username = ${normalizedViewer}) AS liked
     FROM comments c
@@ -519,13 +521,18 @@ export async function getComments(bookId: string, viewer: string, sort: 'top' | 
   return result.rows;
 }
 
-export async function addComment(bookId: string, username: string, body: string) {
+export async function addComment(
+  bookId: string,
+  username: string,
+  body: string,
+  isSpoiler = false
+) {
   const normalizedUsername = username.toLowerCase().trim();
   await getOrCreateUser(normalizedUsername);
   const result = await sql`
-    INSERT INTO comments (book_id, username, body)
-    VALUES (${bookId}, ${normalizedUsername}, ${body})
-    RETURNING id, book_id, username, body, created_at
+    INSERT INTO comments (book_id, username, body, is_spoiler)
+    VALUES (${bookId}, ${normalizedUsername}, ${body}, ${isSpoiler})
+    RETURNING id, book_id, username, body, is_spoiler, created_at
   `;
   return { ...result.rows[0], like_count: 0, liked: false };
 }
