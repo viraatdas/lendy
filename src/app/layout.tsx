@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 
@@ -7,16 +7,29 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+const title = "Lendy — Your cozy book lending library";
+const description =
+  "Keep track of every book you own, and never lose one to a friend again. Lendy is a cozy pixel-art library for tracking, lending, and borrowing your books.";
+
 export const metadata: Metadata = {
-  title: "Lendy - Your Personal Book Lending Library",
-  description: "Track the books you own, lend, and borrow with a cute pixel-art interface. Your cozy book lending library.",
+  title,
+  description,
   metadataBase: new URL("https://lendy.vercel.app"),
-  keywords: ["books", "lending", "library", "book tracker", "borrowing", "reading"],
+  applicationName: "Lendy",
+  keywords: [
+    "books",
+    "lending",
+    "library",
+    "book tracker",
+    "borrowing",
+    "reading",
+    "personal library",
+  ],
   authors: [{ name: "Lendy" }],
   creator: "Lendy",
   openGraph: {
-    title: "Lendy - Your Personal Book Lending Library",
-    description: "Track the books you own, lend, and borrow with a cute pixel-art interface. Your cozy book lending library.",
+    title,
+    description,
     url: "https://lendy.vercel.app",
     siteName: "Lendy",
     locale: "en_US",
@@ -24,16 +37,18 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Lendy - Your Personal Book Lending Library",
-    description: "Track the books you own, lend, and borrow with a cute pixel-art interface. Your cozy book lending library.",
+    title,
+    description,
     creator: "@lendy",
   },
-  icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
-  },
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#fdf6e3",
+  colorScheme: "light",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

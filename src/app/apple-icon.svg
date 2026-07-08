@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" shape-rendering="crispEdges">
+  <!-- Full-bleed cream background (iOS masks the corners) -->
+  <rect width="180" height="180" fill="#fdf6e3"/>
+
+  <!-- Bold ink book block -->
+  <rect x="26" y="40" width="128" height="104" fill="#2d2d2d"/>
+
+  <!-- Left page (white) -->
+  <rect x="36" y="50" width="49" height="84" fill="#ffffff"/>
+  <!-- Right page (white) -->
+  <rect x="95" y="50" width="49" height="84" fill="#ffffff"/>
+
+  <!-- Bold brand-color page lines -->
+  <rect x="44" y="63" width="33" height="8" fill="#ff6b9d"/>
+  <rect x="44" y="82" width="33" height="8" fill="#ffd700"/>
+  <rect x="44" y="101" width="33" height="8" fill="#60a5fa"/>
+
+  <rect x="103" y="63" width="33" height="8" fill="#7c5cff"/>
+  <rect x="103" y="82" width="33" height="8" fill="#4ade80"/>
+  <rect x="103" y="101" width="33" height="8" fill="#ff6b9d"/>
+</svg>
