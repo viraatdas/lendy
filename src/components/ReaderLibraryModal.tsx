@@ -19,26 +19,23 @@ interface ReaderLibraryModalProps {
   isOpen: boolean;
   readerUsername: string | null;
   currentUsername: string;
+  /** Book ids the viewer currently has a pending request on. */
+  requestedBookIds: Set<string>;
   onClose: () => void;
-  onOpenBook: (book: Book) => void;
+  onOpenBook: (book: Book, ownerUsername: string, available: boolean) => void;
 }
 
 export default function ReaderLibraryModal({
   isOpen,
   readerUsername,
   currentUsername,
+  requestedBookIds,
   onClose,
   onOpenBook,
 }: ReaderLibraryModalProps) {
   const [data, setData] = useState<LibraryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Per-book request state
-  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
-  const [requestingId, setRequestingId] = useState<string | null>(null);
-  const [requestError, setRequestError] = useState<string | null>(null);
-  const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
 
   // Inline contact form
   const [showContact, setShowContact] = useState(false);
@@ -68,10 +65,6 @@ export default function ReaderLibraryModal({
       }
       const json: LibraryData = await res.json();
       setData(json);
-      const initial = new Set<string>(
-        (json.owned || []).filter((b) => b.requested).map((b) => b.id)
-      );
-      setRequestedIds(initial);
     } catch {
       setError('Could not load this library right now.');
       setData(null);
@@ -89,8 +82,6 @@ export default function ReaderLibraryModal({
       setContactMessage('');
       setContactSent(false);
       setContactError(null);
-      setRequestError(null);
-      setRequestSuccess(null);
       fetchLibrary();
     }
   }, [isOpen, readerUsername, fetchLibrary]);
@@ -102,70 +93,6 @@ export default function ReaderLibraryModal({
       contactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }, []);
-
-  const handleRequest = useCallback(
-    async (book: PublicBook) => {
-      setRequestingId(book.id);
-      setRequestError(null);
-      setRequestSuccess(null);
-      try {
-        const res = await fetch('/api/requests', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookId: book.id,
-            requesterUsername: currentUsername,
-          }),
-        });
-        if (!res.ok) {
-          let msg = 'Could not send request.';
-          try {
-            const err = await res.json();
-            if (err?.error) msg = err.error;
-          } catch {
-            /* ignore parse error */
-          }
-          setRequestError(msg);
-          return;
-        }
-        setRequestedIds((prev) => {
-          const next = new Set(prev);
-          next.add(book.id);
-          return next;
-        });
-        setRequestSuccess(`Requested "${book.title}"! 🎉`);
-      } catch {
-        setRequestError('Could not send request. Try again.');
-      } finally {
-        setRequestingId(null);
-      }
-    },
-    [currentUsername]
-  );
-
-  const handleRetract = useCallback(
-    async (book: PublicBook) => {
-      setRequestingId(book.id);
-      try {
-        await fetch('/api/requests', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookId: book.id, requesterUsername: currentUsername }),
-        });
-        setRequestedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(book.id);
-          return next;
-        });
-        setRequestSuccess(null);
-      } catch {
-        /* ignore — leave as requested */
-      } finally {
-        setRequestingId(null);
-      }
-    },
-    [currentUsername]
-  );
 
   const handleSendContact = useCallback(
     async (e: React.FormEvent) => {
@@ -210,9 +137,9 @@ export default function ReaderLibraryModal({
   const renderCover = (book: Book, dimmed = false) => (
     <button
       type="button"
-      onClick={() => onOpenBook(book)}
-      title="View details & comments"
-      className={`relative block w-full aspect-[2/3] overflow-hidden pixel-card cursor-pointer ${
+      onClick={() => onOpenBook(book, readerUsername, !dimmed)}
+      title={dimmed ? 'View details & comments' : 'Open to read about it & request'}
+      className={`relative block w-full aspect-[2/3] overflow-hidden pixel-card cursor-pointer transition-transform sm:hover:-translate-y-1 ${
         dimmed ? 'opacity-70' : ''
       }`}
     >
@@ -247,6 +174,14 @@ export default function ReaderLibraryModal({
             </p>
           </div>
         </div>
+      )}
+      {!dimmed && requestedBookIds.has(book.id) && (
+        <span
+          className="absolute top-1 right-1 text-[10px] px-2 py-0.5 border-2 border-[#2d2d2d] bg-[#4ade80] text-[#14532d]"
+          style={{ fontFamily: 'Silkscreen, cursive' }}
+        >
+          ✓ Requested
+        </span>
       )}
     </button>
   );
@@ -377,25 +312,6 @@ export default function ReaderLibraryModal({
               </div>
             )}
 
-            {/* Request feedback */}
-            {requestSuccess && (
-              <div className="pixel-card p-3 bg-[#4ade80]/20 text-center">
-                <p className="text-base" style={{ fontFamily: 'VT323, monospace' }}>
-                  {requestSuccess}
-                </p>
-              </div>
-            )}
-            {requestError && (
-              <div className="pixel-card p-3 bg-[#ef4444]/15 text-center">
-                <p
-                  className="text-base text-[#ef4444]"
-                  style={{ fontFamily: 'VT323, monospace' }}
-                >
-                  {requestError}
-                </p>
-              </div>
-            )}
-
             {/* Empty library */}
             {data.owned.length === 0 && data.lending.length === 0 && (
               <div className="text-center py-16">
@@ -421,47 +337,31 @@ export default function ReaderLibraryModal({
                     {data.owned.length}
                   </span>
                 </div>
+                <p
+                  className="text-base text-[#888] -mt-3 mb-5"
+                  style={{ fontFamily: 'VT323, monospace' }}
+                >
+                  Tap a book to read about it and ask to borrow.
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {data.owned.map((book) => {
-                    const isRequested = requestedIds.has(book.id);
-                    return (
-                      <div key={book.id} className="flex flex-col h-full">
-                        {renderCover(book)}
-                        <div className="mt-2 space-y-1 flex-1">
-                          <h4
-                            className="text-sm leading-tight line-clamp-2"
-                            style={{ fontFamily: 'VT323, monospace' }}
-                          >
-                            {book.title}
-                          </h4>
-                          <p className="text-xs text-[#888] line-clamp-1">{book.author}</p>
-                        </div>
-                        <div className="mt-2">
-                          {isRequested ? (
-                            <button
-                              type="button"
-                              onClick={() => handleRetract(book)}
-                              disabled={requestingId === book.id}
-                              title="Click to retract your request"
-                              className="pixel-btn w-full text-xs bg-[#4ade80]/40 disabled:opacity-50 group/req"
-                            >
-                              <span className="group-hover/req:hidden">✓ Requested</span>
-                              <span className="hidden group-hover/req:inline">↩ Retract</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleRequest(book)}
-                              disabled={requestingId === book.id}
-                              className="pixel-btn pixel-btn-pink w-full text-xs disabled:opacity-50"
-                            >
-                              {requestingId === book.id ? '...' : '🙋 Request'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {data.owned.map((book) => (
+                    <div key={book.id} className="space-y-2">
+                      {renderCover(book)}
+                      <button
+                        type="button"
+                        onClick={() => onOpenBook(book, readerUsername, true)}
+                        className="text-left w-full space-y-1"
+                      >
+                        <h4
+                          className="text-sm leading-tight line-clamp-2"
+                          style={{ fontFamily: 'VT323, monospace' }}
+                        >
+                          {book.title}
+                        </h4>
+                        <p className="text-xs text-[#888] line-clamp-1">{book.author}</p>
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </section>
             )}

@@ -16,23 +16,33 @@ interface FoundBook {
 interface FindBookModalProps {
   isOpen: boolean;
   currentUsername: string;
+  /** Book ids the viewer currently has a pending request on. */
+  requestedBookIds: Set<string>;
   onClose: () => void;
-  onOpenBook: (book: {
-    id: string;
-    title: string;
-    author: string;
-    cover_url: string | null;
-    open_library_key: string;
-  }) => void;
+  onOpenBook: (
+    book: {
+      id: string;
+      title: string;
+      author: string;
+      cover_url: string | null;
+      open_library_key: string;
+    },
+    ownerUsername: string,
+    available: boolean
+  ) => void;
   onOpenReader: (username: string) => void;
+  /** Called after a request is sent or retracted so the parent can refresh. */
+  onRequestChange: () => void;
 }
 
 export default function FindBookModal({
   isOpen,
   currentUsername,
+  requestedBookIds,
   onClose,
   onOpenBook,
   onOpenReader,
+  onRequestChange,
 }: FindBookModalProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoundBook[]>([]);
@@ -94,34 +104,15 @@ export default function FindBookModal({
     }
   }, [isOpen]);
 
-  const setRequested = (id: string, value: boolean) =>
-    setResults((prev) => prev.map((b) => (b.id === id ? { ...b, requested: value } : b)));
-
-  const handleRequest = async (book: FoundBook) => {
-    setBusyId(book.id);
-    try {
-      const res = await fetch('/api/requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookId: book.id, requesterUsername: currentUsername }),
-      });
-      if (res.ok) setRequested(book.id, true);
-    } catch {
-      /* ignore */
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const handleRetract = async (book: FoundBook) => {
+  const toggleRequest = async (book: FoundBook, requested: boolean) => {
     setBusyId(book.id);
     try {
       await fetch('/api/requests', {
-        method: 'DELETE',
+        method: requested ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookId: book.id, requesterUsername: currentUsername }),
       });
-      setRequested(book.id, false);
+      onRequestChange();
     } catch {
       /* ignore */
     } finally {
@@ -166,6 +157,7 @@ export default function FindBookModal({
             <div>
               {results.map((book) => {
                 const available = !book.lent_to_name;
+                const requested = requestedBookIds.has(book.id);
                 return (
                   <div
                     key={book.id}
@@ -173,7 +165,7 @@ export default function FindBookModal({
                   >
                     <button
                       type="button"
-                      onClick={() => onOpenBook(book)}
+                      onClick={() => onOpenBook(book, book.owner_username, available)}
                       title="View details & comments"
                       className="w-14 h-20 flex-shrink-0 bg-[#eee] border-2 border-[#2d2d2d] overflow-hidden"
                     >
@@ -194,7 +186,7 @@ export default function FindBookModal({
                     <div className="flex-1 min-w-0">
                       <button
                         type="button"
-                        onClick={() => onOpenBook(book)}
+                        onClick={() => onOpenBook(book, book.owner_username, available)}
                         className="text-left w-full"
                       >
                         <h3
@@ -236,10 +228,10 @@ export default function FindBookModal({
                     <div className="flex-shrink-0 self-center">
                       {!available ? (
                         <span className="text-xs text-[#aaa]">—</span>
-                      ) : book.requested ? (
+                      ) : requested ? (
                         <button
                           type="button"
-                          onClick={() => handleRetract(book)}
+                          onClick={() => toggleRequest(book, true)}
                           disabled={busyId === book.id}
                           className="pixel-btn text-xs bg-[#4ade80]/40 disabled:opacity-50 group/r"
                           title="Retract request"
@@ -250,7 +242,7 @@ export default function FindBookModal({
                       ) : (
                         <button
                           type="button"
-                          onClick={() => handleRequest(book)}
+                          onClick={() => toggleRequest(book, false)}
                           disabled={busyId === book.id}
                           className="pixel-btn pixel-btn-pink text-xs disabled:opacity-50"
                         >

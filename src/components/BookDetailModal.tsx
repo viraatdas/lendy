@@ -13,6 +13,14 @@ interface BookDetailModalProps {
     open_library_key: string; // Google Books volume id
   } | null;
   currentUsername: string;
+  /** Set when this book belongs to someone else — enables the borrow CTA. */
+  ownerUsername?: string | null;
+  /** False when the owner has already lent the book out. */
+  available?: boolean;
+  /** Whether the viewer has a pending request on this book. */
+  isRequested?: boolean;
+  /** Called after a request is sent or retracted so the parent can refresh. */
+  onRequestChange?: () => void;
   onClose: () => void;
 }
 
@@ -72,6 +80,10 @@ export default function BookDetailModal({
   isOpen,
   book,
   currentUsername,
+  ownerUsername = null,
+  available = true,
+  isRequested = false,
+  onRequestChange,
   onClose,
 }: BookDetailModalProps) {
   const [synopsis, setSynopsis] = useState<BookSynopsis | null>(null);
@@ -88,6 +100,9 @@ export default function BookDetailModal({
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   const reveal = useCallback((id: string) => {
     setRevealed((prev) => {
@@ -170,8 +185,44 @@ export default function BookDetailModal({
       setPostError(null);
       setPosting(false);
       setRevealed(new Set());
+      setRequestError(null);
+      setRequestBusy(false);
     }
   }, [isOpen, bookId]);
+
+  // --- Request / retract this book from its owner ---
+  const canBorrow = !!ownerUsername && ownerUsername !== currentUsername;
+
+  const toggleRequest = useCallback(async () => {
+    if (!bookId || requestBusy) return;
+    setRequestBusy(true);
+    setRequestError(null);
+    try {
+      const res = await fetch('/api/requests', {
+        method: isRequested ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookId, requesterUsername: currentUsername }),
+      });
+      if (!res.ok) {
+        let msg = isRequested
+          ? 'Could not retract that request.'
+          : 'Could not send that request.';
+        try {
+          const err = await res.json();
+          if (err?.error) msg = err.error;
+        } catch {
+          /* ignore parse error */
+        }
+        setRequestError(msg);
+        return;
+      }
+      onRequestChange?.();
+    } catch {
+      setRequestError('Something went wrong. Try again.');
+    } finally {
+      setRequestBusy(false);
+    }
+  }, [bookId, isRequested, requestBusy, currentUsername, onRequestChange]);
 
   // --- Post a comment ---
   const handlePost = useCallback(
@@ -323,7 +374,11 @@ export default function BookDetailModal({
       </header>
 
       {/* Main */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <main
+        className={`max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 ${
+          canBorrow && available ? 'pb-28 sm:pb-8' : ''
+        }`}
+      >
         {/* Hero */}
         <section className="flex flex-col sm:flex-row gap-5 sm:gap-6">
           <div className="w-40 sm:w-48 shrink-0 mx-auto sm:mx-0">
@@ -376,6 +431,75 @@ export default function BookDetailModal({
             )}
           </div>
         </section>
+
+        {/* Borrow this book — the request lives here, not on the shelf grid */}
+        {canBorrow && (
+          <section
+            className={`pixel-card p-4 sm:p-5 ${
+              !available
+                ? 'bg-[#888]/10'
+                : isRequested
+                  ? 'bg-[#4ade80]/15'
+                  : 'bg-[#ff6b9d]/10'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="min-w-0 flex-1 text-center sm:text-left">
+                <p
+                  className="text-lg"
+                  style={{ fontFamily: 'VT323, monospace' }}
+                >
+                  {!available ? (
+                    <>📕 Currently lent out by </>
+                  ) : isRequested ? (
+                    <>⏳ Waiting on </>
+                  ) : (
+                    <>📗 On the shelf of </>
+                  )}
+                  <span
+                    className="text-[#7c5cff]"
+                    style={{ fontFamily: 'Silkscreen, cursive' }}
+                  >
+                    {ownerUsername}
+                  </span>
+                </p>
+                <p className="text-sm text-[#888] mt-1">
+                  {!available
+                    ? 'Check back once it makes its way home.'
+                    : isRequested
+                      ? `${ownerUsername} has been emailed — you'll hear back soon.`
+                      : `Ask ${ownerUsername} to lend it to you. They'll get an email.`}
+                </p>
+              </div>
+
+              {available && (
+                <button
+                  type="button"
+                  onClick={toggleRequest}
+                  disabled={requestBusy}
+                  className={`w-full sm:w-auto shrink-0 min-h-[48px] px-6 text-sm disabled:opacity-50 ${
+                    isRequested ? 'pixel-btn bg-[#4ade80]/40' : 'pixel-btn pixel-btn-pink'
+                  }`}
+                >
+                  {requestBusy
+                    ? '...'
+                    : isRequested
+                      ? '↩ Retract request'
+                      : '🙋 Request to borrow'}
+                </button>
+              )}
+            </div>
+
+            {requestError && (
+              <p
+                className="mt-3 text-base text-[#ef4444] text-center sm:text-left"
+                style={{ fontFamily: 'VT323, monospace' }}
+              >
+                {requestError}
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Synopsis */}
         <section className="pixel-card p-4 sm:p-6">
@@ -589,6 +713,26 @@ export default function BookDetailModal({
           </button>
         </div>
       </main>
+
+      {/* Sticky request bar (mobile only) so the CTA is always in reach */}
+      {canBorrow && available && (
+        <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 border-t-4 border-[#2d2d2d] bg-white/95 backdrop-blur-sm px-4 py-3">
+          <button
+            type="button"
+            onClick={toggleRequest}
+            disabled={requestBusy}
+            className={`w-full min-h-[48px] text-sm disabled:opacity-50 ${
+              isRequested ? 'pixel-btn bg-[#4ade80]/40' : 'pixel-btn pixel-btn-pink'
+            }`}
+          >
+            {requestBusy
+              ? '...'
+              : isRequested
+                ? '↩ Retract request'
+                : `🙋 Request from ${ownerUsername}`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

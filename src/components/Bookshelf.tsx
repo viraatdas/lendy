@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Book, RequestItem } from '@/lib/types';
 import BookCard from './BookCard';
 import BookSearch from './BookSearch';
@@ -13,7 +13,12 @@ import ProfileSettingsModal from './ProfileSettingsModal';
 import BookDetailModal from './BookDetailModal';
 import FindBookModal from './FindBookModal';
 
-type DetailBook = Pick<Book, 'id' | 'title' | 'author' | 'cover_url' | 'open_library_key'>;
+type DetailBook = Pick<Book, 'id' | 'title' | 'author' | 'cover_url' | 'open_library_key'> & {
+  // Set when the book is being viewed on someone else's shelf — the detail page
+  // is where borrowing happens, so it needs to know whose book this is.
+  ownerUsername?: string | null;
+  available?: boolean;
+};
 
 interface BookshelfProps {
   username: string;
@@ -132,6 +137,16 @@ export default function Bookshelf({ username }: BookshelfProps) {
       console.error('Error cancelling request:', error);
     }
   };
+
+  // Books I have a live request on — the single source of truth shared by the
+  // reader library, Find, and the book detail page.
+  const requestedBookIds = useMemo(
+    () =>
+      new Set(
+        myRequests.filter((r) => r.status === 'pending').map((r) => r.book_id)
+      ),
+    [myRequests]
+  );
 
   const handleSelectReader = (readerUsername: string) => {
     setIsReadersOpen(false);
@@ -620,30 +635,41 @@ export default function Bookshelf({ username }: BookshelfProps) {
         isOpen={viewingReader !== null}
         readerUsername={viewingReader}
         currentUsername={username}
+        requestedBookIds={requestedBookIds}
         onClose={() => {
           setViewingReader(null);
           setIsReadersOpen(true);
         }}
-        onOpenBook={(book) => setDetailBook(book)}
+        onOpenBook={(book, ownerUsername, available) =>
+          setDetailBook({ ...book, ownerUsername, available })
+        }
       />
 
       {/* Find a book across all readers */}
       <FindBookModal
         isOpen={isFindOpen}
         currentUsername={username}
+        requestedBookIds={requestedBookIds}
         onClose={() => setIsFindOpen(false)}
-        onOpenBook={(book) => setDetailBook(book)}
+        onOpenBook={(book, ownerUsername, available) =>
+          setDetailBook({ ...book, ownerUsername, available })
+        }
         onOpenReader={(reader) => {
           setIsFindOpen(false);
           setViewingReader(reader);
         }}
+        onRequestChange={fetchRequests}
       />
 
-      {/* Book detail: synopsis + comments + likes */}
+      {/* Book detail: synopsis + comments + likes, and where borrowing happens */}
       <BookDetailModal
         isOpen={detailBook !== null}
         book={detailBook}
         currentUsername={username}
+        ownerUsername={detailBook?.ownerUsername ?? null}
+        available={detailBook?.available ?? true}
+        isRequested={detailBook ? requestedBookIds.has(detailBook.id) : false}
+        onRequestChange={fetchRequests}
         onClose={() => setDetailBook(null)}
       />
 
