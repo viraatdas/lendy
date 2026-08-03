@@ -423,6 +423,8 @@ export async function findBooks(query: string, viewer: string) {
   const term = query.trim().toLowerCase();
   const q = `%${term}%`;
   const v = viewer.toLowerCase().trim();
+  // Match on LOWER(title)/LOWER(author) rather than ILIKE on the raw columns so
+  // both arms can use the LOWER(...) gin_trgm_ops indexes; ILIKE cannot.
   const result = await sql`
     SELECT b.id, b.title, b.author, b.cover_url, b.open_library_key,
            b.owner_username, b.lent_to_name,
@@ -435,22 +437,22 @@ export async function findBooks(query: string, viewer: string) {
     WHERE b.owner_username != ${v}
       AND (b.borrowed_from_name IS NULL OR b.borrowed_from_name = '')
       AND (
-        b.title ILIKE ${q}
-        OR b.author ILIKE ${q}
+        LOWER(b.title) LIKE ${q}
+        OR LOWER(b.author) LIKE ${q}
         OR LOWER(b.title) % ${term}
-        OR LOWER(COALESCE(b.author, '')) % ${term}
+        OR LOWER(b.author) % ${term}
       )
     ORDER BY
       (b.lent_to_name IS NULL) DESC,
       CASE
         WHEN LOWER(b.title) = ${term} THEN 0
-        WHEN b.title ILIKE ${q} THEN 1
-        WHEN b.author ILIKE ${q} THEN 2
+        WHEN LOWER(b.title) LIKE ${q} THEN 1
+        WHEN LOWER(b.author) LIKE ${q} THEN 2
         ELSE 3
       END,
       GREATEST(
         similarity(LOWER(b.title), ${term}),
-        similarity(LOWER(COALESCE(b.author, '')), ${term})
+        similarity(LOWER(b.author), ${term})
       ) DESC,
       b.title ASC,
       b.owner_username ASC
