@@ -425,6 +425,11 @@ export async function findBooks(query: string, viewer: string) {
   const v = viewer.toLowerCase().trim();
   // Match on LOWER(title)/LOWER(author) rather than ILIKE on the raw columns so
   // both arms can use the LOWER(...) gin_trgm_ops indexes; ILIKE cannot.
+  // Fuzzy matching uses word_similarity (`<%`), not similarity (`%`): `%` scores
+  // the query against the whole title, so a short query against a long title
+  // scores below threshold ("bhagvad gita" vs "The Bhagavad Gita (Classics of
+  // Indian Spirituality)" is only 0.21). `<%` scores the best-matching extent
+  // within the title instead, and is still served by the same GIN indexes.
   const result = await sql`
     SELECT b.id, b.title, b.author, b.cover_url, b.open_library_key,
            b.owner_username, b.lent_to_name,
@@ -439,8 +444,8 @@ export async function findBooks(query: string, viewer: string) {
       AND (
         LOWER(b.title) LIKE ${q}
         OR LOWER(b.author) LIKE ${q}
-        OR LOWER(b.title) % ${term}
-        OR LOWER(b.author) % ${term}
+        OR ${term} <% LOWER(b.title)
+        OR ${term} <% LOWER(b.author)
       )
     ORDER BY
       (b.lent_to_name IS NULL) DESC,
@@ -451,8 +456,8 @@ export async function findBooks(query: string, viewer: string) {
         ELSE 3
       END,
       GREATEST(
-        similarity(LOWER(b.title), ${term}),
-        similarity(LOWER(b.author), ${term})
+        word_similarity(${term}, LOWER(b.title)),
+        word_similarity(${term}, LOWER(b.author))
       ) DESC,
       b.title ASC,
       b.owner_username ASC
