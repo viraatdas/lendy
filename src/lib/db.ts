@@ -2,6 +2,9 @@ import { sql } from '@vercel/postgres';
 
 export async function initializeDatabase() {
   try {
+    // Trigram similarity lets book search tolerate small spelling mistakes.
+    await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm;`;
+
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         username VARCHAR(255) PRIMARY KEY,
@@ -51,6 +54,8 @@ export async function initializeDatabase() {
 
     await sql`CREATE INDEX IF NOT EXISTS idx_books_owner ON books(owner_username);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_books_borrower ON books(borrower_username);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_books_title_trgm ON books USING GIN (LOWER(title) gin_trgm_ops);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_books_author_trgm ON books USING GIN (LOWER(author) gin_trgm_ops);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_requests_owner ON requests(owner_username);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_requests_requester ON requests(requester_username);`;
 
@@ -415,7 +420,8 @@ export async function getPublicLibrary(username: string, viewer?: string) {
 // ---- Find a book across everyone's shelves ----
 
 export async function findBooks(query: string, viewer: string) {
-  const q = `%${query.trim()}%`;
+  const term = query.trim().toLowerCase();
+  const q = `%${term}%`;
   const v = viewer.toLowerCase().trim();
   const result = await sql`
     SELECT b.id, b.title, b.author, b.cover_url, b.open_library_key,
@@ -428,8 +434,26 @@ export async function findBooks(query: string, viewer: string) {
     JOIN users u ON u.username = b.owner_username AND u.deleted_at IS NULL
     WHERE b.owner_username != ${v}
       AND (b.borrowed_from_name IS NULL OR b.borrowed_from_name = '')
-      AND (b.title ILIKE ${q} OR b.author ILIKE ${q})
-    ORDER BY (b.lent_to_name IS NULL) DESC, b.title ASC, b.owner_username ASC
+      AND (
+        b.title ILIKE ${q}
+        OR b.author ILIKE ${q}
+        OR LOWER(b.title) % ${term}
+        OR LOWER(COALESCE(b.author, '')) % ${term}
+      )
+    ORDER BY
+      (b.lent_to_name IS NULL) DESC,
+      CASE
+        WHEN LOWER(b.title) = ${term} THEN 0
+        WHEN b.title ILIKE ${q} THEN 1
+        WHEN b.author ILIKE ${q} THEN 2
+        ELSE 3
+      END,
+      GREATEST(
+        similarity(LOWER(b.title), ${term}),
+        similarity(LOWER(COALESCE(b.author, '')), ${term})
+      ) DESC,
+      b.title ASC,
+      b.owner_username ASC
     LIMIT 60
   `;
   return result.rows;
